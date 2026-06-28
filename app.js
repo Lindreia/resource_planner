@@ -1,8 +1,8 @@
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
-const { createTables } = require("./create_tables");
 const expressLayouts = require("express-ejs-layouts");
+const { createTables } = require("./create_tables");
 
 // ───────────────────────────────────────────────────────────
 // Process‑level error handlers
@@ -34,7 +34,7 @@ async function startServer() {
     const app = express();
 
     // ───────────────────────────────────────────────────────────
-    // Layout Engine (IMPORTANT)
+    // Layout Engine
     // ───────────────────────────────────────────────────────────
     app.use(expressLayouts);
     app.set("layout", "components/layout");
@@ -45,7 +45,6 @@ async function startServer() {
     app.set("views", path.join(__dirname, "web/templates"));
     app.set("view engine", "ejs");
 
-    // Correct static path
     app.use("/static", express.static(path.join(__dirname, "web/public/static")));
 
     // ───────────────────────────────────────────────────────────
