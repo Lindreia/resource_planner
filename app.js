@@ -19,7 +19,7 @@ createTables();
 app.set("views", path.join(__dirname, "web/templates"));
 app.set("view engine", "ejs");
 
-app.use("/static", express.static(path.join(__dirname, "projects/public/static")));
+app.use("/static", express.static(path.join(__dirname, "web/projects/public/static")));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
