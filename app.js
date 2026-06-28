@@ -32,29 +32,25 @@ async function startServer() {
 
     const app = express();
 
-    // ───────────────────────────────────────────────────────
     // Templates + Static
-    // ───────────────────────────────────────────────────────
     app.set("views", path.join(__dirname, "web/templates"));
     app.set("view engine", "ejs");
 
-    // Correct static path (based on your folder structure)
+    // Correct static path
     app.use("/static", express.static(path.join(__dirname, "web/public/static")));
 
     // Body parsers
     app.use(express.urlencoded({ extended: true }));
     app.use(express.json());
 
-    // ───────────────────────────────────────────────────────
     // Session
-    // ───────────────────────────────────────────────────────
     app.use(
         session({
             secret: process.env.SESSION_SECRET || "supersecretkey",
             resave: false,
             saveUninitialized: false,
             cookie: {
-                maxAge: 30 * 60 * 1000, // 30 minutes
+                maxAge: 30 * 60 * 1000,
                 httpOnly: true,
                 sameSite: "lax"
             }
@@ -78,9 +74,7 @@ async function startServer() {
         next();
     });
 
-    // ───────────────────────────────────────────────────────
     // Routes
-    // ───────────────────────────────────────────────────────
     try {
         const authRoutes = require("./auth_routes");
         const mainRoutes = require("./routes");
@@ -98,17 +92,13 @@ async function startServer() {
         process.exit(1);
     }
 
-    // ───────────────────────────────────────────────────────
     // Global error handler
-    // ───────────────────────────────────────────────────────
     app.use((err, req, res, next) => {
         console.error("[expressErrorHandler] Unhandled Express error:", err);
         res.status(500).send("Internal Server Error");
     });
 
-    // ───────────────────────────────────────────────────────
     // Start server
-    // ───────────────────────────────────────────────────────
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, () => {
