@@ -37,7 +37,7 @@ async function startServer() {
     app.set("view engine", "ejs");
 
     // Correct static path
-    app.use("/static", express.static(path.join(__dirname, "web/public/static")));
+    app.use("/static", express.static(path.join(__dirname, "web/projects/public/static")));
 
     // Body parsers
     app.use(express.urlencoded({ extended: true }));
