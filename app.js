@@ -18,7 +18,7 @@ process.on("unhandledRejection", (reason, promise) => {
     process.exit(1);
 });
 
-<<<<<<< HEAD
+
 // DATABASE INIT
 createTables();
 
