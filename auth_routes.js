@@ -24,14 +24,18 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const result = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+        const result = await db.query(
+            "SELECT * FROM users WHERE email = $1",
+            [email]
+        );
+
         const user = result.rows[0];
 
         if (!user) {
             return res.render("login", { error: "Invalid email or password" });
         }
 
-        // Check lockout
+        // Account lock check
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
             return res.render("login", { error: "Account locked. Contact admin." });
         }
@@ -54,7 +58,7 @@ router.post("/login", async (req, res) => {
             return res.render("login", { error: "Invalid email or password" });
         }
 
-        // Reset failed attempts
+        // Reset failed attempts on success
         await db.query(
             "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1",
             [user.id]
@@ -69,11 +73,11 @@ router.post("/login", async (req, res) => {
             lastActivity: Date.now()
         };
 
-        res.redirect("/dashboard");
+        return res.redirect("/dashboard");
 
     } catch (err) {
         console.error("Login error:", err);
-        res.render("login", { error: "Server error" });
+        return res.render("login", { error: "Server error" });
     }
 });
 
@@ -100,11 +104,18 @@ router.post("/forgot", async (req, res) => {
     const { email } = req.body;
 
     try {
-        const result = await db.query("SELECT id FROM users WHERE email = $1", [email]);
+        const result = await db.query(
+            "SELECT id FROM users WHERE email = $1",
+            [email]
+        );
+
         const user = result.rows[0];
 
+        // Always respond the same to avoid email enumeration
         if (!user) {
-            return res.render("forgot", { message: "If the email exists, a reset link was sent." });
+            return res.render("forgot", {
+                message: "If the email exists, a reset link was sent."
+            });
         }
 
         const token = crypto.randomBytes(32).toString("hex");
@@ -116,11 +127,11 @@ router.post("/forgot", async (req, res) => {
         );
 
         // For demo: show token on screen
-        res.render("forgot", { message: `Reset token: ${token}` });
+        return res.render("forgot", { message: `Reset token: ${token}` });
 
     } catch (err) {
         console.error("Forgot password error:", err);
-        res.render("forgot", { message: "Server error" });
+        return res.render("forgot", { message: "Server error" });
     }
 });
 
@@ -139,7 +150,11 @@ router.post("/reset", async (req, res) => {
     const { token, password } = req.body;
 
     if (!password || password.length < 12) {
-        return res.render("reset", { token, error: "Password must be at least 12 characters", message: null });
+        return res.render("reset", {
+            token,
+            error: "Password must be at least 12 characters",
+            message: null
+        });
     }
 
     try {
@@ -151,25 +166,38 @@ router.post("/reset", async (req, res) => {
         const reset = result.rows[0];
 
         if (!reset || reset.used || new Date(reset.expires_at) < new Date()) {
-            return res.render("reset", { token, error: "Invalid or expired token", message: null });
+            return res.render("reset", {
+                token,
+                error: "Invalid or expired token",
+                message: null
+            });
         }
 
         const hash = await bcrypt.hash(password, 10);
 
-        await db.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
-            hash,
-            reset.user_id
-        ]);
+        await db.query(
+            "UPDATE users SET password_hash = $1 WHERE id = $2",
+            [hash, reset.user_id]
+        );
 
-        await db.query("UPDATE password_resets SET used = TRUE WHERE id = $1", [
-            reset.id
-        ]);
+        await db.query(
+            "UPDATE password_resets SET used = TRUE WHERE id = $1",
+            [reset.id]
+        );
 
-        res.render("reset", { token: null, error: null, message: "Password updated successfully" });
+        return res.render("reset", {
+            token: null,
+            error: null,
+            message: "Password updated successfully"
+        });
 
     } catch (err) {
         console.error("Reset password error:", err);
-        res.render("reset", { token, error: "Server error", message: null });
+        return res.render("reset", {
+            token,
+            error: "Server error",
+            message: null
+        });
     }
 });
 

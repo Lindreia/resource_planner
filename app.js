@@ -3,7 +3,9 @@ const session = require("express-session");
 const path = require("path");
 const { createTables } = require("./create_tables");
 
-// ─── Process-level error handlers ────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────
+// Process‑level error handlers
+// ───────────────────────────────────────────────────────────
 process.on("uncaughtException", (err) => {
     console.error("[uncaughtException] Unhandled exception — process will exit:", err);
     process.exit(1);
@@ -15,6 +17,9 @@ process.on("unhandledRejection", (reason, promise) => {
     process.exit(1);
 });
 
+// ───────────────────────────────────────────────────────────
+// Server bootstrap
+// ───────────────────────────────────────────────────────────
 async function startServer() {
     try {
         console.log("Initialising database tables...");
@@ -27,39 +32,44 @@ async function startServer() {
 
     const app = express();
 
-    // TEMPLATE + STATIC FOLDERS
+    // ───────────────────────────────────────────────────────
+    // Templates + Static
+    // ───────────────────────────────────────────────────────
     app.set("views", path.join(__dirname, "web/templates"));
     app.set("view engine", "ejs");
 
-    // STATIC FILES
-    app.use("/static", express.static(path.join(__dirname, "web/projects/public/static")));
+    // Correct static path (based on your folder structure)
+    app.use("/static", express.static(path.join(__dirname, "web/public/static")));
 
-    // BODY PARSERS
+    // Body parsers
     app.use(express.urlencoded({ extended: true }));
     app.use(express.json());
 
-    // SESSION
+    // ───────────────────────────────────────────────────────
+    // Session
+    // ───────────────────────────────────────────────────────
     app.use(
         session({
             secret: process.env.SESSION_SECRET || "supersecretkey",
             resave: false,
             saveUninitialized: false,
             cookie: {
-                maxAge: 30 * 60 * 1000,
+                maxAge: 30 * 60 * 1000, // 30 minutes
                 httpOnly: true,
                 sameSite: "lax"
             }
         })
     );
 
-    // INACTIVITY TIMEOUT
+    // Inactivity timeout
     app.use((req, res, next) => {
         if (!req.session.user) return next();
 
         const now = Date.now();
         const maxInactivity = 30 * 60 * 1000;
 
-        if (req.session.user.lastActivity && now - req.session.user.lastActivity > maxInactivity) {
+        if (req.session.user.lastActivity &&
+            now - req.session.user.lastActivity > maxInactivity) {
             req.session.destroy(() => res.redirect("/login"));
             return;
         }
@@ -68,25 +78,39 @@ async function startServer() {
         next();
     });
 
-    // ROUTES
-    const authRoutes = require("./auth_routes");
-    const mainRoutes = require("./routes");
-    const assignmentRoutes = require("./assignments");
-    const adminRoutes = require("./admin_routes");
+    // ───────────────────────────────────────────────────────
+    // Routes
+    // ───────────────────────────────────────────────────────
+    try {
+        const authRoutes = require("./auth_routes");
+        const mainRoutes = require("./routes");
+        const assignmentRoutes = require("./assignments");
+        const adminRoutes = require("./admin_routes");
 
-    app.use("/", authRoutes);
-    app.use("/", mainRoutes);
-    app.use("/assignments", assignmentRoutes);
-    app.use("/admin", adminRoutes);
+        app.use("/", authRoutes);
+        app.use("/", mainRoutes);
+        app.use("/assignments", assignmentRoutes);
+        app.use("/admin", adminRoutes);
 
-    // GLOBAL ERROR HANDLER
+        console.log("Routes registered.");
+    } catch (err) {
+        console.error("[startServer] Failed during route registration:", err);
+        process.exit(1);
+    }
+
+    // ───────────────────────────────────────────────────────
+    // Global error handler
+    // ───────────────────────────────────────────────────────
     app.use((err, req, res, next) => {
         console.error("[expressErrorHandler] Unhandled Express error:", err);
         res.status(500).send("Internal Server Error");
     });
 
-    // START SERVER
+    // ───────────────────────────────────────────────────────
+    // Start server
+    // ───────────────────────────────────────────────────────
     const PORT = process.env.PORT || 5000;
+
     app.listen(PORT, () => {
         console.log(`Server running at http://localhost:${PORT}`);
     });
