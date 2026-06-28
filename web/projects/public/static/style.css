@@ -224,7 +224,7 @@ body {
     content: "";
     position: absolute;
     inset: 0;
-    background-image: url("logo.jpeg");
+    background-image: url("/static/logo.jpeg");
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
