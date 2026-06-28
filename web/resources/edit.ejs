@@ -1,0 +1,63 @@
+<% layout('components/base', { 
+    title: "Edit Resource", 
+    user, 
+    active_page: "resources" 
+}) %>
+
+<div class="container">
+
+    <h2 class="mb-4">Edit Resource</h2>
+
+    <div class="r8-card p-4">
+
+        <form method="POST" action="/resources/edit/<%= resource.id %>">
+
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input 
+                    type="text" 
+                    name="name" 
+                    class="form-control"
+                    value="<%= resource.name %>" 
+                    required
+                >
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Role</label>
+                <input 
+                    type="text" 
+                    name="role" 
+                    class="form-control"
+                    value="<%= resource.role %>"
+                >
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Capacity (hrs)</label>
+                <input 
+                    type="number" 
+                    name="capacity" 
+                    class="form-control"
+                    value="<%= resource.capacity %>" 
+                    required
+                >
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input 
+                    type="email" 
+                    name="email" 
+                    class="form-control"
+                    value="<%= resource.email %>"
+                >
+            </div>
+
+            <button class="btn btn-primary">Update</button>
+
+        </form>
+
+    </div>
+
+</div>

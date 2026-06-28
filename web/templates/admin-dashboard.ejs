@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="login-body logo-bg">
+
+<div class="login-container fade-in wide">
+
+    <h2>Admin Dashboard</h2>
+    <p class="subtitle">System overview and administrative tools</p>
+
+    <% if (message) { %>
+        <div class="success-box"><%= message %></div>
+    <% } %>
+
+    <% if (error) { %>
+        <div class="error-box"><%= error %></div>
+    <% } %>
+
+    <!-- ============================
+         SYSTEM ALERTS
+    ============================= -->
+    <% if (
+        alerts.overdueAssignments.length > 0 ||
+        alerts.overCapacity.length > 0 ||
+        alerts.emptyProjects.length > 0
+    ) { %>
+        <div class="error-box">
+            <h3>⚠️ System Alerts</h3>
+
+            <% if (alerts.overdueAssignments.length > 0) { %>
+                <p><strong><%= alerts.overdueAssignments.length %></strong> assignments are overdue.</p>
+            <% } %>
+
+            <% if (alerts.overCapacity.length > 0) { %>
+                <p><strong><%= alerts.overCapacity.length %></strong> users are over capacity.</p>
+            <% } %>
+
+            <% if (alerts.emptyProjects.length > 0) { %>
+                <p><strong><%= alerts.emptyProjects.length %></strong> projects have no assignments.</p>
+            <% } %>
+        </div>
+    <% } else { %>
+        <div class="success-box">🎉 Everything looks good — no alerts!</div>
+    <% } %>
+
+    <!-- ============================
+         TOP-LEVEL STATS
+    ============================= -->
+    <div class="dashboard-grid">
+
+        <div class="dashboard-card"><h3>Total Users</h3><div class="stat-number"><%= stats.totalUsers %></div></div>
+        <div class="dashboard-card"><h3>Locked Accounts</h3><div class="stat-number"><%= stats.lockedUsers %></div></div>
+        <div class="dashboard-card"><h3>Admins</h3><div class="stat-number"><%= stats.adminCount %></div></div>
+        <div class="dashboard-card"><h3>Managers</h3><div class="stat-number"><%= stats.managerCount %></div></div>
+        <div class="dashboard-card"><h3>Total Projects</h3><div class="stat-number"><%= stats.totalProjects %></div></div>
+        <div class="dashboard-card"><h3>Active Projects</h3><div class="stat-number"><%= stats.activeProjects %></div></div>
+        <div class="dashboard-card"><h3>Total Assignments</h3><div class="stat-number"><%= stats.totalAssignments %></div></div>
+        <div class="dashboard-card"><h3>Active Assignments</h3><div class="stat-number"><%= stats.activeAssignments %></div></div>
+
+    </div>
+
+    <!-- ============================
+         CHARTS
+    ============================= -->
+    <h3 class="section-title">Visual Insights</h3>
+
+    <div class="chart-grid">
+        <div class="chart-card"><h4>User Roles</h4><canvas id="rolesChart"></canvas></div>
+        <div class="chart-card"><h4>Project Activity</h4><canvas id="projectChart"></canvas></div>
+        <div class="chart-card wide"><h4>Assignments Over Time</h4><canvas id="assignmentTrendChart"></canvas></div>
+    </div>
+
+    <!-- ============================
+         RECENT USERS
+    ============================= -->
+    <h3 class="section-title">Recently Added Users</h3>
+
+    <table class="admin-table">
+        <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+        <% recentUsers.forEach(u => { %>
+            <tr>
+                <td><%= u.name %></td>
+                <td><%= u.email %></td>
+                <td><%= u.role %></td>
+            </tr>
+        <% }) %>
+    </table>
+
+    <!-- ============================
+         LOCKED ACCOUNTS
+    ============================= -->
+    <h3 class="section-title">Locked Accounts</h3>
+
+    <% if (lockedList.length === 0) { %>
+        <p class="subtitle">No locked accounts 🎉</p>
+    <% } else { %>
+        <table class="admin-table">
+            <tr><th>Name</th><th>Email</th><th>Locked Until</th><th>Action</th></tr>
+            <% lockedList.forEach(u => { %>
+                <tr>
+                    <td><%= u.name %></td>
+                    <td><%= u.email %></td>
+                    <td><%= u.locked_until.toLocaleString() %></td>
+                    <td><a class="admin-btn small" href="/admin/unlock/<%= u.id %>">Unlock</a></td>
+                </tr>
+            <% }) %>
+        </table>
+    <% } %>
+
+    <!-- ============================
+         ADMIN TOOLS
+    ============================= -->
+    <h3 class="section-title">Admin Tools</h3>
+
+    <div class="admin-links">
+        <a class="admin-btn" href="/admin/users">Manage Users</a>
+        <a class="admin-btn" href="/admin/users/add">Add New User</a>
+        <a class="admin-btn" href="/admin/unlock">Unlock Accounts</a>
+        <a class="admin-btn disabled">Reports (coming soon)</a>
+        <a class="admin-btn disabled">System Logs (coming soon)</a>
+    </div>
+
+    <div class="theme-toggle" onclick="toggleTheme()">
+        <span>🌙 Dark Mode</span>
+    </div>
+
+    <div class="footer-links">
+        <a href="/dashboard">Back to Main Dashboard</a>
+    </div>
+
+</div>
+
+<!-- ============================
+     CHART.JS
+============================= -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+(function () {
+
+    const adminCount = <%= stats.adminCount %>;
+    const managerCount = <%= stats.managerCount %>;
+    const otherUsers = <%= stats.totalUsers - stats.adminCount - stats.managerCount %>;
+
+    const activeProjects = <%= stats.activeProjects %>;
+    const inactiveProjects = <%= stats.totalProjects - stats.activeProjects %>;
+
+    const assignmentTrendLabels = <%- JSON.stringify(assignmentTrend.map(r => r.month)) %>;
+    const assignmentTrendValues = <%- JSON.stringify(assignmentTrend.map(r => Number(r.count))) %>;
+
+    new Chart(document.getElementById("rolesChart"), {
+        type: "pie",
+        data: {
+            labels: ["Admins", "Managers", "Other Users"],
+            datasets: [{
+                data: [adminCount, managerCount, otherUsers],
+                backgroundColor: ["#ff6384", "#36a2eb", "#ffcd56"]
+            }]
+        }
+    });
+
+    new Chart(document.getElementById("projectChart"), {
+        type: "bar",
+        data: {
+            labels: ["Active Projects", "Inactive Projects"],
+            datasets: [{
+                label: "Projects",
+                data: [activeProjects, inactiveProjects],
+                backgroundColor: ["#4caf50", "#9e9e9e"]
+            }]
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+    });
+
+    new Chart(document.getElementById("assignmentTrendChart"), {
+        type: "line",
+        data: {
+            labels: assignmentTrendLabels,
+            datasets: [{
+                label: "Assignments",
+                data: assignmentTrendValues,
+                borderColor: "#36a2eb",
+                fill: false,
+                tension: 0.3
+            }]
+        }
+    });
+
+})();
+</script>
+
+<script>
+function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) {
+    document.documentElement.setAttribute("data-theme", saved);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Management | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body data-theme="light">
+
+<div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-logo">R8</span>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/manager/dashboard" class="nav-link">📊 <span class="nav-text">Dashboard</span></a>
+            <a href="/manager/projects" class="nav-link">📁 <span class="nav-text">Projects</span></a>
+            <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
+            <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
+            <a href="/manager/team" class="nav-link">👥 <span class="nav-text">Team</span></a>
+            <a href="/manager/bookings" class="nav-link active">🗂 <span class="nav-text">Bookings</span></a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+
+        <h2>Booking Management</h2>
+        <p class="subtitle">View and manage bookings for your team</p>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <% if (message) { %>
+            <div class="success-box"><%= message %></div>
+        <% } %>
+
+        <!-- Filters -->
+        <form method="GET" action="/manager/bookings" class="filter-form">
+
+            <div class="input-group">
+                <label>Date</label>
+                <input type="date" name="date" value="<%= filters.date || '' %>">
+            </div>
+
+            <div class="input-group">
+                <label>Team Member</label>
+                <select name="user_id" class="role-select">
+                    <option value="">All</option>
+                    <% team.forEach(member => { %>
+                        <option 
+                            value="<%= member.id %>" 
+                            <%= filters.user_id == member.id ? 'selected' : '' %>>
+                            <%= member.name %>
+                        </option>
+                    <% }) %>
+                </select>
+            </div>
+
+            <button class="login-btn small-btn" type="submit">Apply Filters</button>
+        </form>
+
+        <!-- Booking Table -->
+        <% if (bookings.length === 0) { %>
+            <div class="info-text">No bookings found for the selected filters.</div>
+        <% } else { %>
+
+            <table class="user-table">
+                <tr>
+                    <th>Team Member</th>
+                    <th>Project</th>
+                    <th>Date</th>
+                    <th>Hours</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+
+                <% bookings.forEach(b => { %>
+                    <tr>
+                        <td><%= b.user_name %></td>
+                        <td><%= b.project_name %></td>
+                        <td><%= b.date %></td>
+                        <td><%= b.hours %></td>
+                        <td><%= b.status %></td>
+
+                        <td class="actions">
+                            <a class="login-btn small-btn" href="/manager/bookings/<%= b.id %>">View</a>
+                        </td>
+                    </tr>
+                <% }) %>
+            </table>
+
+        <% } %>
+
+        <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
+
+        <div class="footer-links">
+            <a href="/manager/dashboard">Back to Manager Dashboard</a>
+        </div>
+
+    </main>
+
+</div>
+
+<script>
+/* Sidebar collapse */
+function toggleSidebar() {
+    const s = document.getElementById("sidebar");
+    s.classList.toggle("collapsed");
+    localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem("sidebar-collapsed") === "true") {
+        document.getElementById("sidebar").classList.add("collapsed");
+    }
+});
+
+/* Theme toggle */
+function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) document.documentElement.setAttribute("data-theme", saved);
+</script>
+
+</body>
+</html>

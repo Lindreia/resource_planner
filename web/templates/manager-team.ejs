@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Team | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body data-theme="light">
+
+<div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-logo">R8</span>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/manager/dashboard" class="nav-link">📊 <span class="nav-text">Dashboard</span></a>
+            <a href="/manager/projects" class="nav-link">📁 <span class="nav-text">Projects</span></a>
+            <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
+            <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
+            <a href="/manager/team" class="nav-link active">👥 <span class="nav-text">Team</span></a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+
+        <h2>Your Team</h2>
+        <p class="subtitle">Manage team members and view profiles</p>
+
+        <% if (team.length === 0) { %>
+            <div class="info-text">No team members found.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                </tr>
+
+                <% team.forEach(t => { %>
+                    <tr>
+                        <td><a href="/manager/team/<%= t.id %>"><%= t.name %></a></td>
+                        <td><%= t.email %></td>
+                        <td><%= t.role %></td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+    </main>
+
+</div>
+
+<script>
+function toggleSidebar() {
+    const s = document.getElementById("sidebar");
+    s.classList.toggle("collapsed");
+    localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem("sidebar-collapsed") === "true") {
+        document.getElementById("sidebar").classList.add("collapsed");
+    }
+});
+</script>
+
+</body>
+</html>

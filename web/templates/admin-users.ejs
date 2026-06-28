@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin – User Management | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="login-body logo-bg">
+
+    <div class="login-container fade-in wide">
+
+        <h2>User Management</h2>
+        <p class="subtitle">Manage roles, unlock accounts, and reset user details</p>
+
+        <% if (message) { %>
+            <div class="success-box"><%= message %></div>
+        <% } %>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <table class="user-table">
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Locked?</th>
+                <th>Actions</th>
+            </tr>
+
+            <% users.forEach(user => { %>
+                <tr>
+                    <td><%= user.name %></td>
+                    <td><%= user.email %></td>
+                    <td><%= user.role %></td>
+                    <td>
+                        <% if (user.locked_until) { %>
+                            🔒 Until <%= user.locked_until %>
+                        <% } else { %>
+                            ✔ Active
+                        <% } %>
+                    </td>
+
+                    <td class="actions">
+
+                        <!-- Unlock Button -->
+                        <% if (user.locked_until) { %>
+                            <form method="POST" action="/admin/unlock/<%= user.id %>" class="inline-form">
+                                <button class="login-btn small-btn" type="submit">Unlock</button>
+                            </form>
+                        <% } %>
+
+                        <!-- Change Role -->
+                        <form method="POST" action="/admin/change-role/<%= user.id %>" class="inline-form">
+                            <select name="role" class="role-select">
+                                <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
+                                <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+                                <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                            </select>
+                            <button class="login-btn small-btn" type="submit">Update</button>
+                        </form>
+
+                        <!-- Reset Password -->
+                        <form method="POST" action="/admin/reset-password/<%= user.id %>" class="inline-form">
+                            <button class="login-btn small-btn warn-btn" type="submit">Reset Password</button>
+                        </form>
+
+                    </td>
+                </tr>
+            <% }) %>
+        </table>
+
+        <div class="theme-toggle" onclick="toggleTheme()">
+            🌙 Dark Mode
+        </div>
+
+        <div class="footer-links">
+            <a href="/dashboard">Back to Dashboard</a>
+        </div>
+
+    </div>
+
+<script>
+function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) {
+    document.documentElement.setAttribute("data-theme", saved);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,163 @@
+<% layout('components/base') %>
+
+<div class="container">
+
+    <!-- PAGE TITLE -->
+    <h1 class="r8-page-title mb-4">Dashboard Overview</h1>
+
+    <!-- TOP KPI ROW -->
+    <div class="row g-4">
+
+        <!-- UTILISATION -->
+        <div class="col-md-4">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Utilisation</div>
+
+                <div class="dashboard-kpi"><%= utilisation.percent %>%</div>
+                <div class="dashboard-kpi-label">Current Week</div>
+
+                <div class="dashboard-divider"></div>
+
+                <table class="dashboard-mini-table w-100">
+                    <tr>
+                        <td>Billable</td>
+                        <td class="text-end"><%= utilisation.billable %> hrs</td>
+                    </tr>
+                    <tr>
+                        <td>Non‑Billable</td>
+                        <td class="text-end"><%= utilisation.non_billable %> hrs</td>
+                    </tr>
+                    <tr>
+                        <td>Capacity</td>
+                        <td class="text-end"><%= utilisation.capacity %> hrs</td>
+                    </tr>
+                </table>
+
+                <div class="dashboard-divider"></div>
+
+                <div class="dashboard-progress">
+                    <div class="dashboard-progress-bar" style="--w: <%= utilisation.percent %>%"></div>
+                    <div class="dashboard-progress-bar" style="--w: <%= utilisation.percent %>%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ASSIGNMENTS -->
+        <div class="col-md-4">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Assignments</div>
+
+                <div class="dashboard-kpi"><%= assignments.total %></div>
+                <div class="dashboard-kpi-label">Active Projects</div>
+
+                <div class="dashboard-divider"></div>
+
+                <table class="dashboard-mini-table w-100">
+                    <tr>
+                        <td>Due This Week</td>
+                        <td class="text-end"><%= assignments.due_this_week %></td>
+                    </tr>
+                    <tr>
+                        <td>Overdue</td>
+                        <td class="text-end">
+                            <span class="dashboard-status dashboard-status-red">
+                                <%= assignments.overdue %>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Completed</td>
+                        <td class="text-end"><%= assignments.completed %></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- AVAILABILITY -->
+        <div class="col-md-4">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Availability</div>
+
+                <div class="dashboard-kpi"><%= availability.free_hours %></div>
+                <div class="dashboard-kpi-label">Free Hours This Week</div>
+
+                <div class="dashboard-divider"></div>
+
+                <table class="dashboard-mini-table w-100">
+                    <tr>
+                        <td>Team Members Free</td>
+                        <td class="text-end"><%= availability.free_people %></td>
+                    </tr>
+                    <tr>
+                        <td>Fully Booked</td>
+                        <td class="text-end"><%= availability.full %></td>
+                    </tr>
+                    <tr>
+                        <td>Partially Booked</td>
+                        <td class="text-end"><%= availability.partial %></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SECOND ROW -->
+    <div class="row g-4 mt-2">
+
+        <!-- UPCOMING DEADLINES -->
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Upcoming Deadlines</div>
+
+                <table class="dashboard-mini-table w-100">
+                    <% if (deadlines.length > 0) { %>
+                        <% deadlines.forEach(item => { %>
+                        <tr>
+                            <td>
+                                <span class="project-dot project-<%= item.project_code %>"></span>
+                                <%= item.project_name %>
+                            </td>
+                            <td class="text-end"><%= item.due_date %></td>
+                        </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2" class="text-muted">No upcoming deadlines</td></tr>
+                    <% } %>
+                </table>
+            </div>
+        </div>
+
+        <!-- PROJECT LOAD -->
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Project Load</div>
+
+                <table class="dashboard-mini-table w-100">
+                    <% if (project_load.length > 0) { %>
+                        <% project_load.forEach(p => { %>
+                        <tr>
+                            <td>
+                                <span class="project-dot project-<%= p.code %>"></span>
+                                <%= p.name %>
+                            </td>
+                            <td class="text-end">
+                                <span class="dashboard-status 
+                                    <%= p.status === 'High' ? 'dashboard-status-red' :
+                                        p.status === 'Medium' ? 'dashboard-status-amber' :
+                                        'dashboard-status-green' %>">
+                                    <%= p.status %>
+                                </span>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2" class="text-muted">No active projects</td></tr>
+                    <% } %>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div>

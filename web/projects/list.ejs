@@ -1,0 +1,57 @@
+<%- include("../partials/header") %>
+
+<h2 class="mb-4">Projects</h2>
+
+<div class="mb-3">
+    <a href="/projects/add" class="btn btn-success">+ Add Project</a>
+</div>
+
+<div class="r8-card p-4">
+    <table class="table table-bordered table-sm">
+        <thead class="table-light">
+            <tr>
+                <th style="width: 120px;">Project Code</th>
+                <th>Project Name</th>
+                <th>Client</th>
+                <th style="width: 140px;">Color</th>
+                <th style="width: 100px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% projects.forEach(p => { %>
+            <tr>
+                <td><%= p.project_code %></td>
+                <td><%= p.project_name %></td>
+                <td><%= p.client %></td>
+                <td>
+                    <div class="color-box" data-color="<%= p.color %>"></div>
+                    <span class="ms-2"><%= p.color %></span>
+                </td>
+                <td>
+                    <a href="/projects/edit/<%= p.id %>"
+                       class="btn btn-sm btn-primary">Edit</a>
+                </td>
+            </tr>
+            <% }) %>
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .color-box {
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        display: inline-block;
+        border: 1px solid #ccc;
+        vertical-align: middle;
+    }
+</style>
+
+<script>
+    document.querySelectorAll(".color-box").forEach(box => {
+        box.style.backgroundColor = box.dataset.color;
+    });
+</script>
+
+<%- include("../partials/footer") %>

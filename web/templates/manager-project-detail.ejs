@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title><%= project.name %> | Project Details</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body data-theme="light">
+
+<div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-logo">R8</span>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/manager/dashboard" class="nav-link">📊 <span class="nav-text">Dashboard</span></a>
+            <a href="/manager/projects" class="nav-link active">📁 <span class="nav-text">Projects</span></a>
+            <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
+            <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
+            <a href="/manager/team" class="nav-link">👥 <span class="nav-text">Team</span></a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+
+        <h2><%= project.name %></h2>
+        <p class="subtitle">Project Details & Activity</p>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <% if (message) { %>
+            <div class="success-box"><%= message %></div>
+        <% } %>
+
+        <!-- Project Summary -->
+        <div class="profile-card">
+            <p><strong>Status:</strong> <%= project.status %></p>
+            <p><strong>Start Date:</strong> <%= project.start_date %></p>
+            <p><strong>End Date:</strong> <%= project.end_date %></p>
+            <p><strong>Total Hours:</strong> <%= project.total_hours %></p>
+        </div>
+
+        <!-- Team Section -->
+        <h3 class="section-title">Assigned Team</h3>
+
+        <% if (team.length === 0) { %>
+            <div class="info-text">No team members assigned.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                </tr>
+
+                <% team.forEach(t => { %>
+                    <tr>
+                        <td><%= t.name %></td>
+                        <td><%= t.email %></td>
+                        <td><%= t.role %></td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+        <!-- Tasks Section -->
+        <h3 class="section-title">Tasks</h3>
+
+        <% if (tasks.length === 0) { %>
+            <div class="info-text">No tasks created for this project.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>Task</th>
+                    <th>Assigned To</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                </tr>
+
+                <% tasks.forEach(task => { %>
+                    <tr>
+                        <td><%= task.title %></td>
+                        <td><%= task.assigned_to %></td>
+                        <td><%= task.status %></td>
+                        <td><%= task.due_date %></td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+        <!-- Bookings Section -->
+        <h3 class="section-title">Bookings</h3>
+
+        <% if (bookings.length === 0) { %>
+            <div class="info-text">No bookings recorded for this project.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>Team Member</th>
+                    <th>Date</th>
+                    <th>Hours</th>
+                    <th>Status</th>
+                </tr>
+
+                <% bookings.forEach(b => { %>
+                    <tr>
+                        <td><%= b.user_name %></td>
+                        <td><%= b.date %></td>
+                        <td><%= b.hours %></td>
+                        <td><%= b.status %></td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+        <!-- Timeline Section -->
+        <h3 class="section-title">Timeline</h3>
+
+        <% if (timeline.length === 0) { %>
+            <div class="info-text">No timeline milestones added.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>Milestone</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                </tr>
+
+                <% timeline.forEach(m => { %>
+                    <tr>
+                        <td><%= m.title %></td>
+                        <td><%= m.date %></td>
+                        <td><%= m.status %></td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+        <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
+
+        <div class="footer-links">
+            <a href="/manager/projects">Back to Projects</a>
+        </div>
+
+    </main>
+
+</div>
+
+<script>
+function toggleSidebar() {
+    const s = document.getElementById("sidebar");
+    s.classList.toggle("collapsed");
+    localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
+}
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem("sidebar-collapsed") === "true") {
+        document.getElementById("sidebar").classList.add("collapsed");
+    }
+});
+function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+const saved = localStorage.getItem("theme");
+if (saved) document.documentElement.setAttribute("data-theme", saved);
+</script>
+
+</body>
+</html>

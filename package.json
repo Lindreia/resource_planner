@@ -1,0 +1,16 @@
+{
+  "name": "resource_planner",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^4.19.2",
+    "express-session": "^1.19.0",
+    "ejs": "^3.1.10",
+    "pg": "^8.11.3",
+    "dotenv": "^16.4.5"
+  }
+}
