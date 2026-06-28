@@ -201,4 +201,33 @@ router.post("/reset", async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------
+// ONE‑TIME ADMIN SETUP ROUTE
+// ---------------------------------------------------------
+router.get("/setup-admin", async (req, res) => {
+    try {
+        // Check if an admin already exists
+        const check = await db.query(
+            "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
+        );
+
+        if (check.rows.length > 0) {
+            return res.send("Admin already exists. Setup skipped.");
+        }
+
+        // Create admin user
+        const hashed = await bcrypt.hash("Admin123!", 10);
+
+        await db.query(
+            "INSERT INTO users (email, password_hash, role, name) VALUES ($1, $2, $3, $4)",
+            ["admin@planner.com", hashed, "admin", "Administrator"]
+        );
+
+        res.send("Admin user created successfully.");
+    } catch (err) {
+        console.error("setup-admin error:", err);
+        res.status(500).send("Failed to create admin user.");
+    }
+});
+
 module.exports = router;
