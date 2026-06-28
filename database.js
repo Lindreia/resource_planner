@@ -1,13 +1,17 @@
 const { Pool } = require("pg");
 
-// Create a connection pool
-const pool = new Pool({
-    host: "localhost",
-    port: 5432,
-    user: "postgres",
-    password: "LiTyCaLi89!",
-    database: "resource_planner"
-});
+// Create a connection pool.
+// In production (Railway), DATABASE_URL is injected automatically.
+// Fall back to hardcoded values for local development.
+const pool = process.env.DATABASE_URL
+    ? new Pool({ connectionString: process.env.DATABASE_URL })
+    : new Pool({
+        host: "localhost",
+        port: 5432,
+        user: "postgres",
+        password: "LiTyCaLi89!",
+        database: "resource_planner"
+    });
 
 // Optional: test connection on startup
 pool.connect()
