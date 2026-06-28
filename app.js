@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const path = require("path");
 const { createTables } = require("./create_tables");
+const expressLayouts = require("express-ejs-layouts");
 
 // ───────────────────────────────────────────────────────────
 // Process‑level error handlers
@@ -32,18 +33,30 @@ async function startServer() {
 
     const app = express();
 
+    // ───────────────────────────────────────────────────────────
+    // Layout Engine (IMPORTANT)
+    // ───────────────────────────────────────────────────────────
+    app.use(expressLayouts);
+    app.set("layout", "components/layout");
+
+    // ───────────────────────────────────────────────────────────
     // Templates + Static
+    // ───────────────────────────────────────────────────────────
     app.set("views", path.join(__dirname, "web/templates"));
     app.set("view engine", "ejs");
 
     // Correct static path
-    app.use("/static", express.static(path.join(__dirname, "web/projects/public/static")));
+    app.use("/static", express.static(path.join(__dirname, "web/public/static")));
 
+    // ───────────────────────────────────────────────────────────
     // Body parsers
+    // ───────────────────────────────────────────────────────────
     app.use(express.urlencoded({ extended: true }));
     app.use(express.json());
 
+    // ───────────────────────────────────────────────────────────
     // Session
+    // ───────────────────────────────────────────────────────────
     app.use(
         session({
             secret: process.env.SESSION_SECRET || "supersecretkey",
@@ -57,7 +70,9 @@ async function startServer() {
         })
     );
 
+    // ───────────────────────────────────────────────────────────
     // Inactivity timeout
+    // ───────────────────────────────────────────────────────────
     app.use((req, res, next) => {
         if (!req.session.user) return next();
 
@@ -74,7 +89,9 @@ async function startServer() {
         next();
     });
 
+    // ───────────────────────────────────────────────────────────
     // Routes
+    // ───────────────────────────────────────────────────────────
     try {
         const authRoutes = require("./auth_routes");
         const mainRoutes = require("./routes");
@@ -92,19 +109,22 @@ async function startServer() {
         process.exit(1);
     }
 
+    // ───────────────────────────────────────────────────────────
     // Global error handler
+    // ───────────────────────────────────────────────────────────
     app.use((err, req, res, next) => {
         console.error("[expressErrorHandler] Unhandled Express error:", err);
         res.status(500).send("Internal Server Error");
     });
 
+    // ───────────────────────────────────────────────────────────
     // Start server
+    // ───────────────────────────────────────────────────────────
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, () => {
         console.log(`Server running at http://localhost:${PORT}`);
     });
 }
-
 
 startServer();

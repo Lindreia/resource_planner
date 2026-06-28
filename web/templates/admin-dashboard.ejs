@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Admin Dashboard | Resource Planner</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
+<% layout('components/layout') %>
 
-<body class="login-body logo-bg">
+<div class="container dashboard-container">
 
-<div class="login-container fade-in wide">
-
-    <h2>Admin Dashboard</h2>
+    <h1 class="r8-page-title mb-4">Admin Dashboard</h1>
     <p class="subtitle">System overview and administrative tools</p>
 
     <% if (message) { %>
@@ -21,9 +13,7 @@
         <div class="error-box"><%= error %></div>
     <% } %>
 
-    <!-- ============================
-         SYSTEM ALERTS
-    ============================= -->
+    <!-- SYSTEM ALERTS -->
     <% const hasAlerts =
         alerts.overdueAssignments.length > 0 ||
         alerts.overCapacity.length > 0 ||
@@ -50,11 +40,8 @@
         <div class="success-box">🎉 Everything looks good — no alerts!</div>
     <% } %>
 
-    <!-- ============================
-         TOP-LEVEL STATS
-    ============================= -->
+    <!-- TOP-LEVEL STATS -->
     <div class="dashboard-grid">
-
         <div class="dashboard-card"><h3>Total Users</h3><div class="stat-number"><%= stats.totalUsers %></div></div>
         <div class="dashboard-card"><h3>Locked Accounts</h3><div class="stat-number"><%= stats.lockedUsers %></div></div>
         <div class="dashboard-card"><h3>Admins</h3><div class="stat-number"><%= stats.adminCount %></div></div>
@@ -63,12 +50,9 @@
         <div class="dashboard-card"><h3>Active Projects</h3><div class="stat-number"><%= stats.activeProjects %></div></div>
         <div class="dashboard-card"><h3>Total Assignments</h3><div class="stat-number"><%= stats.totalAssignments %></div></div>
         <div class="dashboard-card"><h3>Active Assignments</h3><div class="stat-number"><%= stats.activeAssignments %></div></div>
-
     </div>
 
-    <!-- ============================
-         CHARTS
-    ============================= -->
+    <!-- CHARTS -->
     <h3 class="section-title">Visual Insights</h3>
 
     <div class="chart-grid">
@@ -77,9 +61,7 @@
         <div class="chart-card wide"><h4>Assignments Over Time</h4><canvas id="assignmentTrendChart"></canvas></div>
     </div>
 
-    <!-- ============================
-         RECENT USERS
-    ============================= -->
+    <!-- RECENT USERS -->
     <h3 class="section-title">Recently Added Users</h3>
 
     <table class="admin-table">
@@ -93,9 +75,7 @@
         <% }) %>
     </table>
 
-    <!-- ============================
-         LOCKED ACCOUNTS
-    ============================= -->
+    <!-- LOCKED ACCOUNTS -->
     <h3 class="section-title">Locked Accounts</h3>
 
     <% if (lockedList.length === 0) { %>
@@ -114,9 +94,7 @@
         </table>
     <% } %>
 
-    <!-- ============================
-         ADMIN TOOLS
-    ============================= -->
+    <!-- ADMIN TOOLS -->
     <h3 class="section-title">Admin Tools</h3>
 
     <div class="admin-links">
@@ -127,24 +105,12 @@
         <a class="admin-btn disabled">System Logs (coming soon)</a>
     </div>
 
-    <div class="theme-toggle" onclick="toggleTheme()">
-        <span>🌙 Dark Mode</span>
-    </div>
-
-    <div class="footer-links">
-        <a href="/dashboard">Back to Main Dashboard</a>
-    </div>
-
 </div>
 
-<!-- ============================
-     CHART.JS
-============================= -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 (function () {
-
     const adminCount = Number(<%= stats.adminCount %>);
     const managerCount = Number(<%= stats.managerCount %>);
     const otherUsers = Number(<%= stats.totalUsers %> - <%= stats.adminCount %> - <%= stats.managerCount %>);
@@ -192,24 +158,5 @@
             }]
         }
     });
-
 })();
 </script>
-
-<script>
-function toggleTheme() {
-    const root = document.documentElement;
-    const current = root.getAttribute("data-theme");
-    const next = current === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
-}
-
-const saved = localStorage.getItem("theme");
-if (saved) {
-    document.documentElement.setAttribute("data-theme", saved);
-}
-</script>
-
-</body>
-</html>

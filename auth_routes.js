@@ -18,7 +18,7 @@ router.get("/login", (req, res) => {
 });
 
 // ---------------------------------------------------------
-// LOGIN SUBMIT
+// LOGIN SUBMIT (WITH ROLE REDIRECT)
 // ---------------------------------------------------------
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
@@ -64,14 +64,19 @@ router.post("/login", async (req, res) => {
             [user.id]
         );
 
-        // Save session
+        // Save session with role
         req.session.user = {
             id: user.id,
             name: user.name,
-            role: user.role,
+            role: user.role,     // ⭐ IMPORTANT
             email: user.email,
             lastActivity: Date.now()
         };
+
+        // ⭐ ROLE‑BASED REDIRECT
+        if (user.role === "admin") {
+            return res.redirect("/admin/dashboard");
+        }
 
         return res.redirect("/dashboard");
 
@@ -206,7 +211,6 @@ router.post("/reset", async (req, res) => {
 // ---------------------------------------------------------
 router.get("/setup-admin", async (req, res) => {
     try {
-        // Check if an admin already exists
         const check = await db.query(
             "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
         );
@@ -215,7 +219,6 @@ router.get("/setup-admin", async (req, res) => {
             return res.send("Admin already exists. Setup skipped.");
         }
 
-        // Create admin user
         const hashed = await bcrypt.hash("Admin123!", 10);
 
         await db.query(
