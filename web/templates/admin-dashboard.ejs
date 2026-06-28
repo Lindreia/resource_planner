@@ -24,11 +24,13 @@
     <!-- ============================
          SYSTEM ALERTS
     ============================= -->
-    <% if (
+    <% const hasAlerts =
         alerts.overdueAssignments.length > 0 ||
         alerts.overCapacity.length > 0 ||
-        alerts.emptyProjects.length > 0
-    ) { %>
+        alerts.emptyProjects.length > 0;
+    %>
+
+    <% if (hasAlerts) { %>
         <div class="error-box">
             <h3>⚠️ System Alerts</h3>
 
@@ -143,12 +145,12 @@
 <script>
 (function () {
 
-    const adminCount = <%= stats.adminCount %>;
-    const managerCount = <%= stats.managerCount %>;
-    const otherUsers = <%= stats.totalUsers - stats.adminCount - stats.managerCount %>;
+    const adminCount = Number(<%= stats.adminCount %>);
+    const managerCount = Number(<%= stats.managerCount %>);
+    const otherUsers = Number(<%= stats.totalUsers %> - <%= stats.adminCount %> - <%= stats.managerCount %>);
 
-    const activeProjects = <%= stats.activeProjects %>;
-    const inactiveProjects = <%= stats.totalProjects - stats.activeProjects %>;
+    const activeProjects = Number(<%= stats.activeProjects %>);
+    const inactiveProjects = Number(<%= stats.totalProjects %> - <%= stats.activeProjects %>);
 
     const assignmentTrendLabels = <%- JSON.stringify(assignmentTrend.map(r => r.month)) %>;
     const assignmentTrendValues = <%- JSON.stringify(assignmentTrend.map(r => Number(r.count))) %>;

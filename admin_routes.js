@@ -1,150 +1,139 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
+const { getConnection } = require("./database");
 const { requireLogin } = require("./web/authMiddleware");
-const { requireRole } = require("./web/authRole");
-const User = require("./web/user_model");
 
-// -----------------------------------------
+const db = getConnection();
+
+// ---------------------------------------------------------
 // ADMIN DASHBOARD
-// -----------------------------------------
-router.get(
-    "/dashboard",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        res.render("admin-dashboard", { user: req.session.user });
+// ---------------------------------------------------------
+router.get("/dashboard", requireLogin, async (req, res) => {
+    try {
+        // ============================
+        // TOP-LEVEL STATS
+        // ============================
+        const statsResult = await db.query(`
+            SELECT
+                (SELECT COUNT(*) FROM users) AS totalUsers,
+                (SELECT COUNT(*) FROM users WHERE locked_until IS NOT NULL) AS lockedUsers,
+                (SELECT COUNT(*) FROM users WHERE role = 'admin') AS adminCount,
+                (SELECT COUNT(*) FROM users WHERE role = 'manager') AS managerCount,
+                (SELECT COUNT(*) FROM projects) AS totalProjects,
+                (SELECT COUNT(*) FROM projects WHERE active = TRUE) AS activeProjects,
+                (SELECT COUNT(*) FROM assignments) AS totalAssignments,
+                (SELECT COUNT(*) FROM assignments WHERE status = 'active') AS activeAssignments
+        `);
+
+        const stats = statsResult.rows[0];
+
+        // ============================
+        // SYSTEM ALERTS
+        // ============================
+        const overdueAssignments = await db.query(
+            "SELECT * FROM assignments WHERE due_date < NOW() AND status != 'completed'"
+        );
+
+        const overCapacity = await db.query(`
+            SELECT u.*, u.capacity,
+                   (SELECT COALESCE(SUM(hours),0) FROM assignments WHERE user_id = u.id) AS allocated
+            FROM users u
+            HAVING allocated > capacity
+        `);
+
+        const emptyProjects = await db.query(`
+            SELECT p.* FROM projects p
+            LEFT JOIN assignments a ON a.project_id = p.id
+            WHERE a.id IS NULL
+        `);
+
+        const alerts = {
+            overdueAssignments: overdueAssignments.rows,
+            overCapacity: overCapacity.rows,
+            emptyProjects: emptyProjects.rows
+        };
+
+        // ============================
+        // RECENT USERS
+        // ============================
+        const recentUsers = await db.query(
+            "SELECT name, email, role FROM users ORDER BY id DESC LIMIT 5"
+        );
+
+        // ============================
+        // LOCKED ACCOUNTS
+        // ============================
+        const lockedList = await db.query(
+            "SELECT * FROM users WHERE locked_until IS NOT NULL ORDER BY locked_until DESC"
+        );
+
+        // ============================
+        // ASSIGNMENT TREND (MONTHLY)
+        // ============================
+        const assignmentTrend = await db.query(`
+            SELECT TO_CHAR(created_at, 'YYYY-MM') AS month,
+                   COUNT(*) AS count
+            FROM assignments
+            GROUP BY month
+            ORDER BY month
+        `);
+
+        // ============================
+        // RENDER ADMIN DASHBOARD
+        // ============================
+        res.render("admin_dashboard", {
+            stats,
+            alerts,
+            recentUsers: recentUsers.rows,
+            lockedList: lockedList.rows,
+            assignmentTrend: assignmentTrend.rows,
+            message: null,
+            error: null
+        });
+
+    } catch (err) {
+        console.error("Admin dashboard error:", err);
+        res.status(500).send("Failed to load admin dashboard");
     }
-);
+});
 
-// -----------------------------------------
-// LIST USERS
-// -----------------------------------------
-router.get(
-    "/users",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        const users = await User.all();
-        res.render("admin-users", { users, user: req.session.user });
+// ---------------------------------------------------------
+// UNLOCK USER ACCOUNT
+// ---------------------------------------------------------
+router.get("/unlock/:id", requireLogin, async (req, res) => {
+    const userId = req.params.id;
+
+    try {
+        await db.query(
+            "UPDATE users SET locked_until = NULL, failed_attempts = 0 WHERE id = $1",
+            [userId]
+        );
+
+        res.redirect("/admin/dashboard?message=Account unlocked");
+    } catch (err) {
+        console.error("Unlock error:", err);
+        res.redirect("/admin/dashboard?error=Failed to unlock account");
     }
-);
+});
 
-// -----------------------------------------
-// ADD USER (FORM)
-// -----------------------------------------
-router.get(
-    "/users/add",
-    requireLogin,
-    requireRole("admin"),
-    (req, res) => {
-        res.render("admin-add-user", { error: null, user: req.session.user });
+// ---------------------------------------------------------
+// MANAGE USERS PAGE
+// ---------------------------------------------------------
+router.get("/users", requireLogin, async (req, res) => {
+    try {
+        const users = await db.query("SELECT * FROM users ORDER BY id ASC");
+        res.render("admin_users", { users: users.rows });
+    } catch (err) {
+        console.error("User list error:", err);
+        res.status(500).send("Failed to load users");
     }
-);
+});
 
-// -----------------------------------------
-// ADD USER (SUBMIT)
-// -----------------------------------------
-router.post(
-    "/users/add",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        const { name, email, password, role, weekly_capacity } = req.body;
-
-        try {
-            await User.create(name, email, password, role, weekly_capacity);
-            res.redirect("/admin/users");
-        } catch (err) {
-            console.error("Add user error:", err);
-            res.render("admin-add-user", {
-                error: "Could not create user",
-                user: req.session.user
-            });
-        }
-    }
-);
-
-// -----------------------------------------
-// EDIT USER (FORM)
-// -----------------------------------------
-router.get(
-    "/users/edit/:id",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).send("User not found");
-
-        res.render("admin-edit-user", { user, error: null });
-    }
-);
-
-// -----------------------------------------
-// EDIT USER (SUBMIT)
-// -----------------------------------------
-router.post(
-    "/users/edit/:id",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        const { name, email, role, weekly_capacity } = req.body;
-
-        try {
-            await User.update(req.params.id, {
-                name,
-                email,
-                role,
-                weekly_capacity
-            });
-
-            res.redirect("/admin/users");
-        } catch (err) {
-            console.error("Edit user error:", err);
-            const user = await User.findById(req.params.id);
-
-            res.render("admin-edit-user", {
-                user,
-                error: "Could not update user"
-            });
-        }
-    }
-);
-
-// -----------------------------------------
-// DELETE USER
-// -----------------------------------------
-router.post(
-    "/users/delete/:id",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        try {
-            await User.delete(req.params.id);
-            res.redirect("/admin/users");
-        } catch (err) {
-            console.error("Delete user error:", err);
-            res.status(500).send("Could not delete user");
-        }
-    }
-);
-
-// -----------------------------------------
-// UNLOCK USER
-// -----------------------------------------
-router.post(
-    "/users/unlock/:id",
-    requireLogin,
-    requireRole("admin"),
-    async (req, res) => {
-        try {
-            await User.unlockAccount(req.params.id);
-            res.redirect("/admin/users");
-        } catch (err) {
-            console.error("Unlock user error:", err);
-            res.status(500).send("Could not unlock user");
-        }
-    }
-);
+// ---------------------------------------------------------
+// ADD USER PAGE
+// ---------------------------------------------------------
+router.get("/users/add", requireLogin, (req, res) => {
+    res.render("admin_add_user", { error: null, message: null });
+});
 
 module.exports = router;
