@@ -73,6 +73,11 @@ app.use((req, res, next) => {
     res.locals.user = req.session?.user || null;
     next();
 });
+// Default active_page for all EJS templates
+app.use((req, res, next) => {
+    res.locals.active_page = null;
+    next();
+});
 
     // ───────────────────────────────────────────────────────────
     // Inactivity timeout
