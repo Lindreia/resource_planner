@@ -11,6 +11,9 @@ const db = getConnection();
 // ---------------------------------------------------------
 router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) => {
     try {
+        // ============================
+        // TOP-LEVEL STATS
+        // ============================
         const statsResult = await db.query(`
             SELECT
                 (SELECT COUNT(*) FROM users) AS totalUsers,
@@ -25,6 +28,9 @@ router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) =>
 
         const stats = statsResult.rows[0];
 
+        // ============================
+        // SYSTEM ALERTS
+        // ============================
         const overdueAssignments = await db.query(
             "SELECT * FROM assignments WHERE due_date < NOW() AND status != 'completed'"
         );
@@ -48,14 +54,23 @@ router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) =>
             emptyProjects: emptyProjects.rows
         };
 
+        // ============================
+        // RECENT USERS
+        // ============================
         const recentUsers = await db.query(
             "SELECT name, email, role FROM users ORDER BY id DESC LIMIT 5"
         );
 
+        // ============================
+        // LOCKED ACCOUNTS
+        // ============================
         const lockedList = await db.query(
             "SELECT * FROM users WHERE locked_until IS NOT NULL ORDER BY locked_until DESC"
         );
 
+        // ============================
+        // ASSIGNMENT TREND (MONTHLY)
+        // ============================
         const assignmentTrend = await db.query(`
             SELECT TO_CHAR(created_at, 'YYYY-MM') AS month,
                    COUNT(*) AS count
@@ -64,12 +79,28 @@ router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) =>
             ORDER BY month
         `);
 
+        // ============================
+        // USER ACTIVITY TIMELINE
+        // ============================
+        const userActivity = await db.query(`
+            SELECT TO_CHAR(last_activity, 'YYYY-MM-DD') AS date,
+                   COUNT(*) AS count
+            FROM users
+            WHERE last_activity IS NOT NULL
+            GROUP BY date
+            ORDER BY date
+        `);
+
+        // ============================
+        // RENDER ADMIN DASHBOARD
+        // ============================
         res.render("admin_dashboard", {
             stats,
             alerts,
             recentUsers: recentUsers.rows,
             lockedList: lockedList.rows,
             assignmentTrend: assignmentTrend.rows,
+            userActivity: userActivity.rows,
             message: null,
             error: null
         });

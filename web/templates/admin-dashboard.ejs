@@ -2,11 +2,13 @@
 
 <div class="container dashboard-container">
 
+    <!-- PAGE TITLE -->
     <h1 class="r8-page-title mb-4">Admin Dashboard</h1>
 
-    <!-- KPI ROW -->
+    <!-- TOP KPI ROW -->
     <div class="row g-4">
 
+        <!-- TOTAL USERS -->
         <div class="col-md-3">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Total Users</div>
@@ -15,22 +17,29 @@
             </div>
         </div>
 
+        <!-- LOCKED ACCOUNTS -->
         <div class="col-md-3">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Locked Accounts</div>
-                <div class="dashboard-kpi dashboard-status-red"><%= stats.lockedusers %></div>
-                <div class="dashboard-kpi-label">Require Action</div>
+                <div class="dashboard-kpi">
+                    <span class="dashboard-status dashboard-status-red">
+                        <%= stats.lockedusers %>
+                    </span>
+                </div>
+                <div class="dashboard-kpi-label">Require Admin Action</div>
             </div>
         </div>
 
+        <!-- ADMINS -->
         <div class="col-md-3">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Admins</div>
                 <div class="dashboard-kpi"><%= stats.admincount %></div>
-                <div class="dashboard-kpi-label">System Admins</div>
+                <div class="dashboard-kpi-label">System Administrators</div>
             </div>
         </div>
 
+        <!-- MANAGERS -->
         <div class="col-md-3">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Managers</div>
@@ -44,62 +53,83 @@
     <!-- ALERTS + RECENT USERS -->
     <div class="row g-4 mt-2">
 
+        <!-- SYSTEM ALERTS -->
         <div class="col-md-6">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">System Alerts</div>
 
                 <table class="dashboard-mini-table w-100">
-                    <tr><th>Alert</th><th class="text-end">Count</th></tr>
-
+                    <tr>
+                        <th>Alert</th>
+                        <th class="text-end">Count</th>
+                    </tr>
                     <tr>
                         <td>Overdue Assignments</td>
-                        <td class="text-end dashboard-status-red"><%= alerts.overdueAssignments.length %></td>
+                        <td class="text-end">
+                            <span class="dashboard-status dashboard-status-red">
+                                <%= alerts.overdueAssignments.length %>
+                            </span>
+                        </td>
                     </tr>
-
                     <tr>
                         <td>Over Capacity</td>
-                        <td class="text-end dashboard-status-amber"><%= alerts.overCapacity.length %></td>
+                        <td class="text-end">
+                            <span class="dashboard-status dashboard-status-amber">
+                                <%= alerts.overCapacity.length %>
+                            </span>
+                        </td>
                     </tr>
-
                     <tr>
                         <td>Empty Projects</td>
-                        <td class="text-end dashboard-status-green"><%= alerts.emptyProjects.length %></td>
+                        <td class="text-end">
+                            <span class="dashboard-status dashboard-status-green">
+                                <%= alerts.emptyProjects.length %>
+                            </span>
+                        </td>
                     </tr>
                 </table>
             </div>
         </div>
 
+        <!-- RECENT USERS -->
         <div class="col-md-6">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Recent Users</div>
 
                 <table class="dashboard-mini-table w-100">
-                    <% recentUsers.forEach(u => { %>
-                        <tr>
-                            <td><%= u.name %></td>
-                            <td class="text-end"><%= u.role %></td>
-                        </tr>
-                    <% }) %>
+                    <% if (recentUsers && recentUsers.length > 0) { %>
+                        <% recentUsers.forEach(u => { %>
+                            <tr>
+                                <td><%= u.name %></td>
+                                <td class="text-end"><%= u.role %></td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2" class="text-muted">No recent users</td></tr>
+                    <% } %>
                 </table>
             </div>
         </div>
 
     </div>
 
-    <!-- LOCKED ACCOUNTS + CHART -->
+    <!-- LOCKED ACCOUNTS + ASSIGNMENT TREND -->
     <div class="row g-4 mt-2">
 
+        <!-- LOCKED ACCOUNTS -->
         <div class="col-md-6">
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Locked Accounts</div>
 
                 <table class="dashboard-mini-table w-100">
-                    <% if (lockedList.length > 0) { %>
+                    <% if (lockedList && lockedList.length > 0) { %>
                         <% lockedList.forEach(u => { %>
                             <tr>
                                 <td><%= u.name %> (<%= u.email %>)</td>
                                 <td class="text-end">
-                                    <a href="/admin/unlock/<%= u.id %>" class="btn btn-sm btn-success">Unlock</a>
+                                    <a href="/admin/unlock/<%= u.id %>" class="btn btn-sm btn-success">
+                                        Unlock
+                                    </a>
                                 </td>
                             </tr>
                         <% }) %>
@@ -110,13 +140,24 @@
             </div>
         </div>
 
+        <!-- ASSIGNMENT TREND -->
         <div class="col-md-6">
             <div class="dashboard-card">
-                <div class="dashboard-card-title">Assignment Trend</div>
+                <div class="dashboard-card-title">Assignment Trend (Monthly)</div>
                 <canvas id="trendChart" height="120"></canvas>
             </div>
         </div>
 
+    </div>
+
+    <!-- USER ACTIVITY TIMELINE -->
+    <div class="row g-4 mt-2">
+        <div class="col-md-12">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">User Activity Timeline</div>
+                <canvas id="activityTimeline" height="140"></canvas>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -126,33 +167,65 @@
 
 <script>
 (function () {
+    // Assignment trend data
+    const trendMonths = <%- JSON.stringify(assignmentTrend.map(a => a.month)) %>;
+    const trendCounts = <%- JSON.stringify(assignmentTrend.map(a => a.count)) %>;
 
-    const months = <%- JSON.stringify(assignmentTrend.map(a => a.month)) %>;
-    const counts = <%- JSON.stringify(assignmentTrend.map(a => a.count)) %>;
-
-    new Chart(document.getElementById("trendChart"), {
-        type: "line",
-        data: {
-            labels: months,
-            datasets: [{
-                label: "Assignments",
-                data: counts,
-                borderColor: "#0b8a4a",
-                backgroundColor: "rgba(11,138,74,0.15)",
-                tension: 0.35,
-                fill: true
-            }]
-        },
-        options: {
-            animation: {
-                duration: 1200,
-                easing: "easeOutQuart"
+    const trendCtx = document.getElementById("trendChart");
+    if (trendCtx) {
+        new Chart(trendCtx, {
+            type: "line",
+            data: {
+                labels: trendMonths,
+                datasets: [{
+                    label: "Assignments",
+                    data: trendCounts,
+                    borderColor: "#0b8a4a",
+                    backgroundColor: "rgba(11,138,74,0.15)",
+                    tension: 0.35,
+                    fill: true
+                }]
             },
-            scales: {
-                y: { beginAtZero: true }
+            options: {
+                animation: {
+                    duration: 1200,
+                    easing: "easeOutQuart"
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
             }
-        }
-    });
+        });
+    }
 
+    // User activity timeline data
+    const activityLabels = <%- JSON.stringify(userActivity.map(a => a.date)) %>;
+    const activityCounts = <%- JSON.stringify(userActivity.map(a => a.count)) %>;
+
+    const activityCtx = document.getElementById("activityTimeline");
+    if (activityCtx) {
+        new Chart(activityCtx, {
+            type: "bar",
+            data: {
+                labels: activityLabels,
+                datasets: [{
+                    label: "User Activity",
+                    data: activityCounts,
+                    backgroundColor: "rgba(11,138,74,0.35)",
+                    borderColor: "#0b8a4a",
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                animation: {
+                    duration: 1400,
+                    easing: "easeOutQuart"
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
 })();
 </script>
