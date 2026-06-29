@@ -68,6 +68,11 @@ async function startServer() {
             }
         })
     );
+// Make `user` available to all EJS templates
+app.use((req, res, next) => {
+    res.locals.user = req.session?.user || null;
+    next();
+});
 
     // ───────────────────────────────────────────────────────────
     // Inactivity timeout
