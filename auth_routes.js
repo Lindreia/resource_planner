@@ -14,8 +14,12 @@ const LOCK_DURATION_MINUTES = 30;
 // LOGIN PAGE
 // ---------------------------------------------------------
 router.get("/login", (req, res) => {
-    res.render("login", { error: null });
+    res.render("login", {
+        error: null,
+        layout: false
+    });
 });
+
 
 // ---------------------------------------------------------
 // LOGIN SUBMIT (WITH ROLE REDIRECT)
