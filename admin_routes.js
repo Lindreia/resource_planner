@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { getConnection } = require("./database");
 const { requireLogin } = require("./web/authMiddleware");
-const { requireRole } = require("./middleware/requireRole");
+const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
 
