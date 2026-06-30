@@ -14,7 +14,7 @@ const LOCK_DURATION_MINUTES = 30;
 // LOGIN PAGE
 // ---------------------------------------------------------
 router.get("/login", (req, res) => {
-    res.render("login", { error: null });
+    res.render("login", { error: null, layout: false });
 });
 
 // ---------------------------------------------------------
@@ -22,22 +22,23 @@ router.get("/login", (req, res) => {
 // ---------------------------------------------------------
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
     try {
         const result = await db.query(
-            "SELECT * FROM users WHERE email = $1",
-            [email]
+            "SELECT * FROM users WHERE LOWER(email) = $1",
+            [normalizedEmail]
         );
 
         const user = result.rows[0];
 
         if (!user) {
-            return res.render("login", { error: "Invalid email or password" });
+            return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
         // Account lock check
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
-            return res.render("login", { error: "Account locked. Contact admin." });
+            return res.render("login", { error: "Account locked. Contact admin.", layout: false });
         }
 
         const valid = await bcrypt.compare(password, user.password_hash);
@@ -55,7 +56,7 @@ router.post("/login", async (req, res) => {
                 [failed, lockedUntil, user.id]
             );
 
-            return res.render("login", { error: "Invalid email or password" });
+            return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
         // Reset failed attempts on success
@@ -82,7 +83,7 @@ router.post("/login", async (req, res) => {
 
     } catch (err) {
         console.error("Login error:", err);
-        return res.render("login", { error: "Server error" });
+        return res.render("login", { error: "Server error", layout: false });
     }
 });
 
@@ -219,14 +220,22 @@ router.get("/setup-admin", async (req, res) => {
             return res.send("Admin already exists. Setup skipped.");
         }
 
-        const hashed = await bcrypt.hash("Admin123!", 10);
+        const bootstrapEmail = String(process.env.ADMIN_BOOTSTRAP_EMAIL || "admin@planner.com").trim().toLowerCase();
+        const bootstrapName = String(process.env.ADMIN_BOOTSTRAP_NAME || "Administrator").trim() || "Administrator";
+        const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || "AdminChangeMe123!";
+
+        if (!bootstrapPassword || bootstrapPassword.length < 12) {
+            return res.status(400).send("ADMIN_BOOTSTRAP_PASSWORD does not meet password policy requirements.");
+        }
+
+        const hashed = await bcrypt.hash(bootstrapPassword, 10);
 
         await db.query(
             "INSERT INTO users (email, password_hash, role, name) VALUES ($1, $2, $3, $4)",
-            ["admin@planner.com", hashed, "admin", "Administrator"]
+            [bootstrapEmail, hashed, "admin", bootstrapName]
         );
 
-        res.send("Admin user created successfully.");
+        res.send(`Admin user created successfully for ${bootstrapEmail}.`);
     } catch (err) {
         console.error("setup-admin error:", err);
         res.status(500).send("Failed to create admin user.");

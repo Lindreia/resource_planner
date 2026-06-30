@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const path = require("path");
 const expressLayouts = require("express-ejs-layouts");
+const bcrypt = require("bcryptjs");
 const { createTables } = require("./create_tables");
 
 // ───────────────────────────────────────────────────────────
@@ -18,6 +19,48 @@ process.on("unhandledRejection", (reason, promise) => {
     process.exit(1);
 });
 
+function hasStrongPassword(password) {
+    if (!password || password.length < 12) return false;
+    if (!/[A-Z]/.test(password)) return false;
+    if (!/[a-z]/.test(password)) return false;
+    if (!/[0-9]/.test(password)) return false;
+    if (!/[^A-Za-z0-9]/.test(password)) return false;
+    return true;
+}
+
+async function ensureBootstrapAdmin() {
+    const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+
+    if (!bootstrapPassword) {
+        console.warn("Bootstrap admin skipped: ADMIN_BOOTSTRAP_PASSWORD is not set.");
+        return;
+    }
+
+    if (!hasStrongPassword(bootstrapPassword)) {
+        throw new Error("ADMIN_BOOTSTRAP_PASSWORD does not meet password policy requirements.");
+    }
+
+    const { getConnection } = require("./database");
+    const db = getConnection();
+    const adminCheck = await db.query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+
+    if (adminCheck.rows.length > 0) {
+        console.log("Bootstrap admin already exists.");
+        return;
+    }
+
+    const email = String(process.env.ADMIN_BOOTSTRAP_EMAIL || "admin@planner.com").trim().toLowerCase();
+    const name = String(process.env.ADMIN_BOOTSTRAP_NAME || "Administrator").trim() || "Administrator";
+    const hash = await bcrypt.hash(bootstrapPassword, 10);
+
+    await db.query(
+        "INSERT INTO users (email, password_hash, role, name) VALUES ($1, $2, $3, $4)",
+        [email, hash, "admin", name]
+    );
+
+    console.log(`Bootstrap admin created for ${email}.`);
+}
+
 // ───────────────────────────────────────────────────────────
 // Server bootstrap
 // ───────────────────────────────────────────────────────────
@@ -25,6 +68,7 @@ async function startServer() {
     try {
         console.log("Initialising database tables...");
         await createTables();
+        await ensureBootstrapAdmin();
         console.log("Database initialisation complete.");
     } catch (err) {
         console.error("[startServer] Failed during database initialisation:", err);
