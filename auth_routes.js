@@ -21,6 +21,12 @@ const LOCK_DURATION_MINUTES = 30;
 const MFA_EXPIRY_MINUTES = 10;
 const MFA_MAX_ATTEMPTS = 5;
 
+function debugAuthLog(message, payload) {
+    if (process.env.DEBUG_AUTH === "true") {
+        console.log(`[AUTH DEBUG] ${message}`, payload || {});
+    }
+}
+
 function regenerateSession(req) {
     return new Promise((resolve, reject) => {
         req.session.regenerate((err) => {
@@ -54,6 +60,12 @@ function getPasswordPolicyMessage() {
 
 function requirePendingMfa(req, res, next) {
     if (!req.session || !req.session.pendingMfa) {
+        debugAuthLog("verify-mfa redirect due to missing pendingMfa", {
+            path: req.originalUrl,
+            sessionID: req.sessionID,
+            hasSession: Boolean(req.session),
+            hasCookieHeader: Boolean(req.headers.cookie)
+        });
         return res.redirect("/login");
     }
 
@@ -123,6 +135,7 @@ router.get("/verify-mfa", requirePendingMfa, (req, res) => {
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
     const normalizedEmail = String(email || "").trim().toLowerCase();
+    debugAuthLog("login attempt", { email: normalizedEmail, sessionID: req.sessionID });
 
     try {
         const result = await db.query(
@@ -134,12 +147,14 @@ router.post("/login", async (req, res) => {
 
         if (!user) {
             await logAuditEvent(null, "login_failed", { email: normalizedEmail }, req.ip);
+            debugAuthLog("login failed - no user", { email: normalizedEmail, sessionID: req.sessionID });
             return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
         // Account lock check
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
             await logAuditEvent(user.id, "login_locked", { email: normalizedEmail }, req.ip);
+            debugAuthLog("login blocked - account locked", { userId: user.id, email: normalizedEmail, sessionID: req.sessionID });
             return res.render("login", { error: "Account locked. Contact admin.", layout: false });
         }
 
@@ -159,6 +174,7 @@ router.post("/login", async (req, res) => {
             );
 
             await logAuditEvent(user.id, "login_failed", { email: normalizedEmail, failed_attempts: failed }, req.ip);
+            debugAuthLog("login failed - bad password", { userId: user.id, email: normalizedEmail, failedAttempts: failed, sessionID: req.sessionID });
             return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
@@ -169,6 +185,7 @@ router.post("/login", async (req, res) => {
         );
 
         if (user.mfa_enabled) {
+            await regenerateSession(req);
             req.session.pendingMfa = {
                 id: user.id,
                 name: user.name,
@@ -178,6 +195,8 @@ router.post("/login", async (req, res) => {
 
             await createMfaChallenge(user.id, user.email);
             await logAuditEvent(user.id, "mfa_required", { email: normalizedEmail }, req.ip);
+            await saveSession(req);
+            debugAuthLog("mfa challenge created", { userId: user.id, email: normalizedEmail, sessionID: req.sessionID });
             return res.redirect("/verify-mfa");
         }
 
@@ -194,6 +213,7 @@ router.post("/login", async (req, res) => {
         await saveSession(req);
 
         await logAuditEvent(user.id, "login_success", { email: normalizedEmail }, req.ip);
+        debugAuthLog("login success", { userId: user.id, role: user.role, email: normalizedEmail, sessionID: req.sessionID });
 
         if (user.role === "admin") {
             return res.redirect("/admin/dashboard");
@@ -203,6 +223,7 @@ router.post("/login", async (req, res) => {
 
     } catch (err) {
         console.error("Login error:", err);
+        debugAuthLog("login exception", { email: normalizedEmail, sessionID: req.sessionID, error: err.message });
         return res.render("login", { error: "Server error", layout: false });
     }
 });
