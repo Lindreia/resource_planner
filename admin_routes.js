@@ -185,7 +185,7 @@ router.post("/notifications/read-all", requireLogin, requireRole("admin"), async
 // ---------------------------------------------------------
 // OVERRIDE WORKFLOW
 // ---------------------------------------------------------
-router.get("/overrides", requireLogin, requireRole("admin", "manager", "staff"), async (req, res) => {
+router.get("/overrides", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         const result = await db.query(`
             SELECT orq.*, b.date, b.hours, b.status AS booking_status,
@@ -212,9 +212,10 @@ router.get("/overrides", requireLogin, requireRole("admin", "manager", "staff"),
     }
 });
 
-router.post("/overrides/request", requireLogin, requireRole("admin", "manager", "staff"), async (req, res) => {
+router.post("/overrides/request", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     const bookingId = req.body.booking_id;
     const reason = req.body.reason || "Override requested";
+    const actorRole = String(req.session?.user?.role || "").toLowerCase();
 
     if (!bookingId) {
         return res.redirect("/admin/overrides?error=Booking ID is required");
@@ -226,15 +227,39 @@ router.post("/overrides/request", requireLogin, requireRole("admin", "manager", 
             return res.redirect("/admin/overrides?error=Booking not found");
         }
 
+        if (actorRole === "admin") {
+            await db.query(`
+                INSERT INTO override_requests (booking_id, requested_by, status, reason, conflicts_json, approved_by, resolved_at)
+                VALUES ($1, $2, 'approved', $3, $4, $2, NOW())
+            `, [bookingId, req.session.user.id, reason, JSON.stringify({ source: "admin-instant-override" })]);
+
+            await db.query("UPDATE bookings SET status = $1 WHERE id = $2", ["override-approved", bookingId]);
+            await logAuditEvent(req.session.user.id, "override_approved_instant", { booking_id: bookingId, reason }, req.ip);
+            return res.redirect("/admin/overrides?message=Override applied instantly");
+        }
+
         await db.query(`
             INSERT INTO override_requests (booking_id, requested_by, status, reason, conflicts_json)
             VALUES ($1, $2, 'pending', $3, $4)
-        `, [bookingId, req.session.user.id, reason, JSON.stringify({ source: "manual-request" })]);
+        `, [bookingId, req.session.user.id, reason, JSON.stringify({ source: "manager-request" })]);
 
         await db.query("UPDATE bookings SET status = $1 WHERE id = $2", ["override-pending", bookingId]);
         await logAuditEvent(req.session.user.id, "override_requested", { booking_id: bookingId, reason }, req.ip);
 
-        res.redirect("/admin/overrides?message=Override request submitted");
+        const admins = await db.query("SELECT id FROM users WHERE role = 'admin'");
+        await Promise.all(admins.rows.map(admin => createAdminNotification(
+            admin.id,
+            "override_request_pending",
+            {
+                booking_id: bookingId,
+                requested_by: req.session.user.name,
+                requested_by_email: req.session.user.email,
+                reason,
+                requested_at: new Date().toISOString()
+            }
+        )));
+
+        return res.redirect("/admin/overrides?message=Override request submitted for admin approval");
     } catch (err) {
         console.error("Override request error:", err);
         res.redirect("/admin/overrides?error=Failed to submit override request");
