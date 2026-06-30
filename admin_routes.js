@@ -1,10 +1,34 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { getConnection } = require("./database");
 const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
+const ALLOWED_ROLES = new Set(["admin", "manager", "staff"]);
+
+function hasStrongPassword(password) {
+    if (!password || password.length < 12) return false;
+    if (!/[A-Z]/.test(password)) return false;
+    if (!/[a-z]/.test(password)) return false;
+    if (!/[0-9]/.test(password)) return false;
+    if (!/[^A-Za-z0-9]/.test(password)) return false;
+    return true;
+}
+
+function passwordPolicyMessage() {
+    return "Password must be at least 12 characters and include uppercase, lowercase, number, and special character.";
+}
+
+function redirectUsers(res, message, error) {
+    const params = new URLSearchParams();
+    if (message) params.set("message", message);
+    if (error) params.set("error", error);
+    const query = params.toString();
+    return res.redirect(`/admin/users${query ? `?${query}` : ""}`);
+}
 
 function logAuditEvent(userId, eventType, details, ip) {
     return db.query(
@@ -321,6 +345,23 @@ router.get("/unlock/:id", requireLogin, requireRole("admin"), async (req, res) =
     }
 });
 
+router.post("/unlock/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = req.params.id;
+
+    try {
+        await db.query(
+            "UPDATE users SET locked_until = NULL, failed_attempts = 0 WHERE id = $1",
+            [userId]
+        );
+
+        await logAuditEvent(req.session.user.id, "user_unlocked", { user_id: userId }, req.ip);
+        return redirectUsers(res, "Account unlocked", null);
+    } catch (err) {
+        console.error("Unlock error:", err);
+        return redirectUsers(res, null, "Failed to unlock account");
+    }
+});
+
 // ---------------------------------------------------------
 // MANAGE USERS PAGE
 // ---------------------------------------------------------
@@ -330,8 +371,8 @@ router.get("/users", requireLogin, requireRole("admin"), async (req, res) => {
         res.render("admin-users", {
             users: users.rows,
             active_page: "admin_users",
-            message: null,
-            error: null
+            message: req.query.message || null,
+            error: req.query.error || null
         });
     } catch (err) {
         console.error("User list error:", err);
@@ -344,6 +385,118 @@ router.get("/users", requireLogin, requireRole("admin"), async (req, res) => {
 // ---------------------------------------------------------
 router.get("/users/add", requireLogin, requireRole("admin"), (req, res) => {
     res.render("admin-add-user", { error: null, message: null, active_page: "admin_add_user" });
+});
+
+router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) => {
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+    const role = String(req.body.role || "").trim().toLowerCase();
+
+    if (!name || !email || !password || !role) {
+        return res.render("admin-add-user", {
+            error: "All fields are required.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
+    if (!ALLOWED_ROLES.has(role)) {
+        return res.render("admin-add-user", {
+            error: "Invalid role selected.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
+    if (!hasStrongPassword(password)) {
+        return res.render("admin-add-user", {
+            error: passwordPolicyMessage(),
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
+    try {
+        const existing = await db.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
+        if (existing.rows.length > 0) {
+            return res.render("admin-add-user", {
+                error: "A user with that email already exists.",
+                message: null,
+                active_page: "admin_add_user"
+            });
+        }
+
+        const hash = await bcrypt.hash(password, 10);
+        const inserted = await db.query(
+            `INSERT INTO users (email, password_hash, role, name, failed_attempts, locked_until, mfa_enabled)
+             VALUES ($1, $2, $3, $4, 0, NULL, FALSE)
+             RETURNING id, email, role, name`,
+            [email, hash, role, name]
+        );
+
+        await logAuditEvent(req.session.user.id, "user_created", {
+            user_id: inserted.rows[0].id,
+            email: inserted.rows[0].email,
+            role: inserted.rows[0].role
+        }, req.ip);
+
+        return redirectUsers(res, `User ${inserted.rows[0].name} created successfully`, null);
+    } catch (err) {
+        console.error("Add user error:", err);
+        return res.render("admin-add-user", {
+            error: "Failed to create user.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+});
+
+router.post("/users/add", requireLogin, requireRole("admin"), async (req, res) => {
+    req.url = "/add-user";
+    return router.handle(req, res);
+});
+
+router.post("/change-role/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = req.params.id;
+    const role = String(req.body.role || "").trim().toLowerCase();
+
+    if (!ALLOWED_ROLES.has(role)) {
+        return redirectUsers(res, null, "Invalid role selected");
+    }
+
+    try {
+        await db.query("UPDATE users SET role = $1 WHERE id = $2", [role, userId]);
+        await logAuditEvent(req.session.user.id, "user_role_changed", { user_id: userId, role }, req.ip);
+        return redirectUsers(res, "User role updated", null);
+    } catch (err) {
+        console.error("Change role error:", err);
+        return redirectUsers(res, null, "Failed to update role");
+    }
+});
+
+router.post("/reset-password/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = req.params.id;
+    const temporaryPassword = `Tmp${crypto.randomBytes(6).toString("base64").replace(/[^A-Za-z0-9]/g, "A")}!9`;
+
+    try {
+        const userResult = await db.query("SELECT email FROM users WHERE id = $1", [userId]);
+        if (userResult.rows.length === 0) {
+            return redirectUsers(res, null, "User not found");
+        }
+
+        const hash = await bcrypt.hash(temporaryPassword, 10);
+        await db.query(
+            "UPDATE users SET password_hash = $1, failed_attempts = 0, locked_until = NULL WHERE id = $2",
+            [hash, userId]
+        );
+
+        await logAuditEvent(req.session.user.id, "password_reset_admin", { user_id: userId }, req.ip);
+        return redirectUsers(res, `Temporary password for ${userResult.rows[0].email}: ${temporaryPassword}`, null);
+    } catch (err) {
+        console.error("Reset password error:", err);
+        return redirectUsers(res, null, "Failed to reset password");
+    }
 });
 
 module.exports = router;
