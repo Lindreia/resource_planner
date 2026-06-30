@@ -28,6 +28,7 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Role</th>
+                        <th>Status</th>
                         <th>Locked?</th>
                         <th>Actions</th>
                     </tr>
@@ -38,6 +39,13 @@
                             <td><%= user.name %></td>
                             <td><%= user.email %></td>
                             <td><span class="badge text-bg-secondary"><%= user.role %></span></td>
+                            <td>
+                                <% if (user.is_active === false) { %>
+                                    <span class="badge text-bg-danger">Deactivated</span>
+                                <% } else { %>
+                                    <span class="badge text-bg-success">Active</span>
+                                <% } %>
+                            </td>
                             <td>
                                 <% if (user.locked_until) { %>
                                     🔒 Until <%= user.locked_until %>
@@ -57,6 +65,8 @@
                                         <select name="role" class="form-select form-select-sm role-select">
                                             <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
                                             <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+                                            <option value="viewer" <%= user.role === 'viewer' ? 'selected' : '' %>>Viewer</option>
+                                            <option value="client" <%= user.role === 'client' ? 'selected' : '' %>>External Client</option>
                                             <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
                                         </select>
                                         <button class="btn btn-sm btn-primary" type="submit">Update</button>
@@ -65,6 +75,16 @@
                                     <form method="POST" action="/admin/reset-password/<%= user.id %>" class="inline-form">
                                         <button class="btn btn-sm btn-outline-danger" type="submit">Reset Password</button>
                                     </form>
+
+                                    <% if (user.is_active === false) { %>
+                                        <form method="POST" action="/admin/reactivate-user/<%= user.id %>" class="inline-form">
+                                            <button class="btn btn-sm btn-success" type="submit">Reactivate</button>
+                                        </form>
+                                    <% } else { %>
+                                        <form method="POST" action="/admin/deactivate-user/<%= user.id %>" class="inline-form">
+                                            <button class="btn btn-sm btn-outline-warning" type="submit">Deactivate</button>
+                                        </form>
+                                    <% } %>
                                 </div>
                             </td>
                         </tr>

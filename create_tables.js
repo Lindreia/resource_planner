@@ -20,6 +20,22 @@ async function createTables() {
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
         `);
+
+        await db.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+        `);
+
+        await db.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ;
+        `);
+
+        await db.query(`
+            UPDATE users
+            SET is_active = TRUE
+            WHERE is_active IS NULL;
+        `);
         console.log("Users table ensured.");
 
         // PROJECTS

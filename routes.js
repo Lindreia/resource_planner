@@ -7,6 +7,40 @@ const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
 
+async function resolveVisibleUserIds(user) {
+    const role = String(user?.role || "").toLowerCase();
+    const userId = Number(user?.id);
+
+    if (!Number.isInteger(userId)) return [];
+
+    if (role === "admin" || role === "viewer") {
+        return null;
+    }
+
+    if (role === "staff" || role === "client") {
+        return [userId];
+    }
+
+    if (role === "manager") {
+        const teamMembers = await db.query(
+            `SELECT DISTINCT tm_member.user_id
+             FROM team_members tm_manager
+             JOIN team_members tm_member ON tm_member.team_name = tm_manager.team_name
+             WHERE tm_manager.user_id = $1`,
+            [userId]
+        );
+
+        const ids = teamMembers.rows
+            .map(row => Number(row.user_id))
+            .filter(Number.isInteger);
+
+        if (!ids.includes(userId)) ids.push(userId);
+        return ids.length > 0 ? ids : [userId];
+    }
+
+    return [userId];
+}
+
 // -----------------------------------------
 // PAGE ROUTES (EJS templates)
 // -----------------------------------------
@@ -17,6 +51,7 @@ router.get("/", requireLogin, (req, res) => {
 
 router.get("/weekly", requireLogin, async (req, res) => {
     try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
         const offset = Number(req.query.week_offset || 0);
         const today = new Date();
         const monday = new Date(today);
@@ -28,8 +63,12 @@ router.get("/weekly", requireLogin, async (req, res) => {
         const startISO = monday.toISOString().slice(0, 10);
         const endISO = sunday.toISOString().slice(0, 10);
 
+        const teamParams = [endISO, startISO];
+        if (scopedUserIds) teamParams.push(scopedUserIds);
+
         const teamQuery = `
             SELECT
+                u.id,
                 u.name,
                 u.weekly_capacity,
                 COALESCE(SUM(a.hours_per_week), 0) AS allocated
@@ -38,10 +77,11 @@ router.get("/weekly", requireLogin, async (req, res) => {
                 ON a.user_id = u.id
                AND a.start_date <= $1
                AND (a.end_date IS NULL OR a.end_date >= $2)
-            GROUP BY u.name, u.weekly_capacity
+            ${scopedUserIds ? "WHERE u.id = ANY($3::int[])" : ""}
+            GROUP BY u.id, u.name, u.weekly_capacity
             ORDER BY u.name;
         `;
-        const teamResult = await db.query(teamQuery, [endISO, startISO]);
+        const teamResult = await db.query(teamQuery, teamParams);
 
         const team = teamResult.rows.map(row => {
             const available = Math.max(row.weekly_capacity - row.allocated, 0);
@@ -58,6 +98,9 @@ router.get("/weekly", requireLogin, async (req, res) => {
             };
         });
 
+        const projectParams = [endISO, startISO];
+        if (scopedUserIds) projectParams.push(scopedUserIds);
+
         const projectQuery = `
             SELECT
                 p.project_code,
@@ -70,10 +113,11 @@ router.get("/weekly", requireLogin, async (req, res) => {
                 ON a.project_id = p.id
                AND a.start_date <= $1
                AND (a.end_date IS NULL OR a.end_date >= $2)
+               ${scopedUserIds ? "AND a.user_id = ANY($3::int[])" : ""}
             GROUP BY p.project_code, p.project_name, p.color
             ORDER BY p.project_code;
         `;
-        const projectResult = await db.query(projectQuery, [endISO, startISO]);
+        const projectResult = await db.query(projectQuery, projectParams);
 
         const projects = projectResult.rows.map(row => ({
             code: row.project_code,
@@ -113,8 +157,12 @@ router.get("/weekly", requireLogin, async (req, res) => {
 
 router.get("/daily", requireLogin, async (req, res) => {
     try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
         const selected = req.query.date ? new Date(req.query.date) : new Date();
         const dayISO = selected.toISOString().slice(0, 10);
+
+        const dailyParams = [dayISO];
+        if (scopedUserIds) dailyParams.push(scopedUserIds);
 
         const bookingsQuery = `
             SELECT u.name AS user_name, p.project_code, p.project_name, p.color, b.hours
@@ -122,9 +170,10 @@ router.get("/daily", requireLogin, async (req, res) => {
             JOIN users u ON u.id = b.user_id
             JOIN projects p ON p.id = b.project_id
             WHERE b.date = $1
+            ${scopedUserIds ? "AND b.user_id = ANY($2::int[])" : ""}
             ORDER BY u.name, p.project_code;
         `;
-        const bookingsResult = await db.query(bookingsQuery, [dayISO]);
+        const bookingsResult = await db.query(bookingsQuery, dailyParams);
         const bookings = bookingsResult.rows;
 
         const byUserMap = new Map();
@@ -158,6 +207,7 @@ router.get("/daily", requireLogin, async (req, res) => {
 
 router.get("/monthly", requireLogin, async (req, res) => {
     try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
         const now = new Date();
         const selected = req.query.start
             ? new Date(req.query.start)
@@ -169,14 +219,18 @@ router.get("/monthly", requireLogin, async (req, res) => {
         const startISO = monthStart.toISOString().slice(0, 10);
         const endISO = monthEnd.toISOString().slice(0, 10);
 
+        const monthlyParams = [startISO, endISO];
+        if (scopedUserIds) monthlyParams.push(scopedUserIds);
+
         const monthQuery = `
             SELECT p.project_code, p.project_name, p.color, COALESCE(SUM(b.hours), 0) AS total_hours
             FROM projects p
             LEFT JOIN bookings b ON b.project_id = p.id AND b.date BETWEEN $1 AND $2
+            ${scopedUserIds ? "AND b.user_id = ANY($3::int[])" : ""}
             GROUP BY p.project_code, p.project_name, p.color
             ORDER BY p.project_code;
         `;
-        const monthResult = await db.query(monthQuery, [startISO, endISO]);
+        const monthResult = await db.query(monthQuery, monthlyParams);
 
         const summary = monthResult.rows.map(r => ({
             code: r.project_code,
@@ -268,7 +322,7 @@ router.get("/logout", requireLogin, (req, res) => {
 router.get(
     "/dashboard",
     requireLogin,
-    requireRole("admin", "manager", "staff"),
+    requireRole("admin", "manager", "staff", "viewer", "client"),
     async (req, res) => {
         try {
             const weekStartStr = req.query.start || "2026-05-19";

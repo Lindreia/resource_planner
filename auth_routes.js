@@ -182,6 +182,12 @@ router.post("/login", async (req, res) => {
             return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
+        if (user.is_active === false) {
+            await logAuditEvent(user.id, "login_inactive_account", { email: normalizedEmail }, req.ip);
+            debugAuthLog("login blocked - inactive account", { userId: user.id, email: normalizedEmail, sessionID: req.sessionID });
+            return res.render("login", { error: "Account is deactivated. Contact admin.", layout: false });
+        }
+
         // Account lock check
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
             await logAuditEvent(user.id, "login_locked", { email: normalizedEmail }, req.ip);

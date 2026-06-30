@@ -7,7 +7,7 @@ const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
-const ALLOWED_ROLES = new Set(["admin", "manager", "staff"]);
+const ALLOWED_ROLES = new Set(["admin", "manager", "staff", "viewer", "client"]);
 
 function hasStrongPassword(password) {
     if (!password || password.length < 12) return false;
@@ -497,6 +497,54 @@ router.post("/change-role/:id", requireLogin, requireRole("admin"), async (req, 
     } catch (err) {
         console.error("Change role error:", err);
         return redirectUsers(res, null, "Failed to update role");
+    }
+});
+
+router.post("/deactivate-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = Number(req.params.id);
+
+    if (userId === Number(req.session.user.id)) {
+        return redirectUsers(res, null, "You cannot deactivate your own account");
+    }
+
+    try {
+        const userResult = await db.query("SELECT id, email, is_active FROM users WHERE id = $1", [userId]);
+        if (userResult.rows.length === 0) {
+            return redirectUsers(res, null, "User not found");
+        }
+
+        await db.query(
+            "UPDATE users SET is_active = FALSE, deactivated_at = NOW(), locked_until = NOW(), failed_attempts = 0 WHERE id = $1",
+            [userId]
+        );
+
+        await logAuditEvent(req.session.user.id, "user_deactivated", { user_id: userId }, req.ip);
+        return redirectUsers(res, "User deactivated", null);
+    } catch (err) {
+        console.error("Deactivate user error:", err);
+        return redirectUsers(res, null, "Failed to deactivate user");
+    }
+});
+
+router.post("/reactivate-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = Number(req.params.id);
+
+    try {
+        const userResult = await db.query("SELECT id FROM users WHERE id = $1", [userId]);
+        if (userResult.rows.length === 0) {
+            return redirectUsers(res, null, "User not found");
+        }
+
+        await db.query(
+            "UPDATE users SET is_active = TRUE, deactivated_at = NULL, locked_until = NULL, failed_attempts = 0 WHERE id = $1",
+            [userId]
+        );
+
+        await logAuditEvent(req.session.user.id, "user_reactivated", { user_id: userId }, req.ip);
+        return redirectUsers(res, "User reactivated", null);
+    } catch (err) {
+        console.error("Reactivate user error:", err);
+        return redirectUsers(res, null, "Failed to reactivate user");
     }
 });
 
