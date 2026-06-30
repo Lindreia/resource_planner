@@ -115,13 +115,13 @@ router.post("/login", async (req, res) => {
 
         if (!user) {
             await logAuditEvent(null, "login_failed", { email }, req.ip);
-            return res.render("login", { error: "Invalid email or password" });
+            return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
         // Account lock check
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
             await logAuditEvent(user.id, "login_locked", { email }, req.ip);
-            return res.render("login", { error: "Account locked. Contact admin." });
+            return res.render("login", { error: "Account locked. Contact admin.", layout: false });
         }
 
         const valid = await bcrypt.compare(password, user.password_hash);
@@ -140,7 +140,7 @@ router.post("/login", async (req, res) => {
             );
 
             await logAuditEvent(user.id, "login_failed", { email, failed_attempts: failed }, req.ip);
-            return res.render("login", { error: "Invalid email or password" });
+            return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
         // Reset failed attempts on success
@@ -181,7 +181,7 @@ router.post("/login", async (req, res) => {
 
     } catch (err) {
         console.error("Login error:", err);
-        return res.render("login", { error: "Server error" });
+        return res.render("login", { error: "Server error", layout: false });
     }
 });
 
