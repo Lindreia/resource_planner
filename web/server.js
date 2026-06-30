@@ -25,6 +25,7 @@ app.set("view engine", "ejs");
 
 // Global static assets
 app.use("/static", express.static(path.join(__dirname, "projects/public/static")));
+app.use("/docs", express.static(path.join(__dirname, "public/docs")));
 
 // -----------------------------------------
 // MIDDLEWARE

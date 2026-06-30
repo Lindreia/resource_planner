@@ -233,9 +233,10 @@ body {
    LOGIN PAGE
 ---------------------------------------------------- */
 .logo-bg {
-    background-color: #e9f3ec;
+    background: linear-gradient(135deg, #f5fbf7 0%, #e8f3eb 100%);
     min-height: 100vh;
     position: relative;
+    overflow: hidden;
 }
 
 .logo-bg::before {
@@ -243,23 +244,31 @@ body {
     position: absolute;
     inset: 0;
     background-image: url("/static/logo.jpeg");
-    background-size: cover;
-    opacity: 0.05;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 72vmin;
+    opacity: 0.14;
+    pointer-events: none;
 }
 
 .login-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    box-sizing: border-box;
 }
 
 .login-container {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(6px);
-    padding: 45px;
-    border-radius: 12px;
-    width: 520px;
+    position: relative;
+    z-index: 1;
+    background: rgba(255,255,255,0.94);
+    backdrop-filter: blur(8px);
+    padding: 40px 36px;
+    border-radius: 18px;
+    width: min(92vw, 430px);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+    border: 1px solid rgba(255,255,255,0.7);
 }
 
 /* ----------------------------------------------------

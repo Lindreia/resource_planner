@@ -5,6 +5,14 @@
     <!-- PAGE TITLE -->
     <h1 class="r8-page-title mb-4">Admin Dashboard</h1>
 
+    <div class="dashboard-card mb-4">
+        <div class="dashboard-card-title">UI Reference</div>
+        <p class="mb-2">Use this page as a visual guide for the look and feel the web app should follow.</p>
+        <a href="/docs/app-look-and-feel.html" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success">
+            Open UI mockup
+        </a>
+    </div>
+
     <!-- TOP KPI ROW -->
     <div class="row g-4">
 
@@ -168,8 +176,8 @@
 <script>
 (function () {
     // Assignment trend data
-    const trendMonths = <%- JSON.stringify(assignmentTrend.map(a => a.month)) %>;
-    const trendCounts = <%- JSON.stringify(assignmentTrend.map(a => a.count)) %>;
+    const trendMonths = JSON.parse('<%- JSON.stringify(assignmentTrend.map(a => a.month)) %>');
+    const trendCounts = JSON.parse('<%- JSON.stringify(assignmentTrend.map(a => a.count)) %>');
 
     const trendCtx = document.getElementById("trendChart");
     if (trendCtx) {
@@ -199,8 +207,8 @@
     }
 
     // User activity timeline data
-    const activityLabels = <%- JSON.stringify(userActivity.map(a => a.date)) %>;
-    const activityCounts = <%- JSON.stringify(userActivity.map(a => a.count)) %>;
+    const activityLabels = JSON.parse('<%- JSON.stringify(userActivity.map(a => a.date)) %>');
+    const activityCounts = JSON.parse('<%- JSON.stringify(userActivity.map(a => a.count)) %>');
 
     const activityCtx = document.getElementById("activityTimeline");
     if (activityCtx) {
