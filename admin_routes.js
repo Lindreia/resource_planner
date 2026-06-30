@@ -326,7 +326,11 @@ router.get("/unlock/:id", requireLogin, requireRole("admin"), async (req, res) =
 router.get("/users", requireLogin, requireRole("admin"), async (req, res) => {
     try {
         const users = await db.query("SELECT * FROM users ORDER BY id ASC");
-        res.render("admin-users", { users: users.rows });
+        res.render("admin-users", {
+            users: users.rows,
+            message: null,
+            error: null
+        });
     } catch (err) {
         console.error("User list error:", err);
         res.status(500).send("Failed to load users");
