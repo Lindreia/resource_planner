@@ -29,6 +29,7 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
                 pendingApprovalsResult.rows[0].count,
                 projectCountResult.rows[0].count
             ),
+            active_page: "manager_dashboard",
             message: req.query.message || null,
             error: req.query.error || null
         });
