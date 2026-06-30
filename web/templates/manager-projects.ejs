@@ -55,43 +55,66 @@
 
         <!-- Availability Section -->
         <h3 class="section-title">Availability</h3>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Projects | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
 
-        <% if (availability.length === 0) { %>
-            <div class="info-text">No availability data recorded.</div>
-        <% } else { %>
-            <table class="user-table">
-                <tr>
-                    <th>Date</th>
-                    <th>Status</th>
-                </tr>
+<body data-theme="light">
 
-                <% availability.forEach(a => { %>
-                    <tr>
-                        <td><%= a.date %></td>
-                        <td><%= a.status %></td>
-                    </tr>
-                <% }) %>
-            </table>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-logo">R8</span>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/manager/dashboard" class="nav-link">📊 <span class="nav-text">Dashboard</span></a>
+            <a href="/manager/projects" class="nav-link active">📁 <span class="nav-text">Projects</span></a>
+            <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
+            <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
+            <a href="/manager/team" class="nav-link">👥 <span class="nav-text">Team</span></a>
+            <a href="/logout" class="nav-link logout-link">Logout</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <h2>Projects</h2>
+        <p class="subtitle">Review active projects and total allocation</p>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
         <% } %>
 
-        <!-- Bookings Section -->
-        <h3 class="section-title">Recent Bookings</h3>
+        <% if (message) { %>
+            <div class="success-box"><%= message %></div>
+        <% } %>
 
-        <% if (bookings.length === 0) { %>
-            <div class="info-text">No bookings found.</div>
+        <% if (projects.length === 0) { %>
+            <div class="info-text">No projects found.</div>
         <% } else { %>
             <table class="user-table">
                 <tr>
+                    <th>Code</th>
                     <th>Project</th>
-                    <th>Date</th>
-                    <th>Hours</th>
+                    <th>Total Hours</th>
+                    <th>Team Members</th>
+                    <th>Actions</th>
                 </tr>
 
-                <% bookings.forEach(b => { %>
+                <% projects.forEach(project => { %>
                     <tr>
-                        <td><%= b.project_name %></td>
-                        <td><%= b.date %></td>
-                        <td><%= b.hours %></td>
+                        <td><%= project.project_code %></td>
+                        <td><%= project.project_name %></td>
+                        <td><%= project.total_hours %> hrs</td>
+                        <td><%= project.members %></td>
+                        <td>
+                            <a class="login-btn small-btn" href="/manager/projects/<%= project.id %>">View</a>
+                        </td>
                     </tr>
                 <% }) %>
             </table>
@@ -100,35 +123,36 @@
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
 
         <div class="footer-links">
-            <a href="/manager/team">Back to Team Overview</a>
+            <a href="/manager/dashboard">Back to Manager Dashboard</a>
         </div>
-
     </main>
-
 </div>
 
+<script src="/static/logout-modal.js"></script>
 <script>
-/* Sidebar collapse */
 function toggleSidebar() {
-    const s = document.getElementById("sidebar");
-    s.classList.toggle("collapsed");
-    localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
+    const sidebar = document.getElementById("sidebar");
+    sidebar.classList.toggle("collapsed");
+    localStorage.setItem("sidebar-collapsed", sidebar.classList.contains("collapsed"));
 }
+
 document.addEventListener("DOMContentLoaded", () => {
     if (localStorage.getItem("sidebar-collapsed") === "true") {
         document.getElementById("sidebar").classList.add("collapsed");
     }
 });
 
-/* Theme toggle */
 function toggleTheme() {
     const root = document.documentElement;
     const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
     root.setAttribute("data-theme", next);
     localStorage.setItem("theme", next);
 }
-const saved = localStorage.getItem("theme");
-if (saved) document.documentElement.setAttribute("data-theme", saved);
+
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme) {
+    document.documentElement.setAttribute("data-theme", savedTheme);
+}
 </script>
 
 </body>

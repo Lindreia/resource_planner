@@ -101,6 +101,7 @@ router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) =>
             lockedList: lockedList.rows,
             assignmentTrend: assignmentTrend.rows,
             userActivity: userActivity.rows,
+            active_page: "admin_dashboard",
             message: null,
             error: null
         });
@@ -138,6 +139,7 @@ router.get("/users", requireLogin, requireRole("admin"), async (req, res) => {
         const users = await db.query("SELECT * FROM users ORDER BY id ASC");
         res.render("admin-users", {
             users: users.rows,
+            active_page: "admin_users",
             message: null,
             error: null
         });
@@ -151,7 +153,7 @@ router.get("/users", requireLogin, requireRole("admin"), async (req, res) => {
 // ADD USER PAGE
 // ---------------------------------------------------------
 router.get("/users/add", requireLogin, requireRole("admin"), (req, res) => {
-    res.render("admin_add_user", { error: null, message: null });
+    res.render("admin_add_user", { error: null, message: null, active_page: "admin_add_user" });
 });
 
 module.exports = router;

@@ -140,11 +140,13 @@ async function startServer() {
         const mainRoutes = require("./routes");
         const assignmentRoutes = require("./assignments");
         const adminRoutes = require("./admin_routes");
+        const managerRoutes = require("./manager_routes");
 
         app.use("/", authRoutes);
         app.use("/", mainRoutes);
         app.use("/assignments", assignmentRoutes);
         app.use("/admin", adminRoutes);
+        app.use("/manager", managerRoutes);
 
         console.log("Routes registered.");
     } catch (err) {
