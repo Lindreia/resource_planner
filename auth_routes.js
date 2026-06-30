@@ -114,6 +114,33 @@ async function createMfaChallenge(userId, email) {
     await sendMfaCodeEmail(email, code);
 }
 
+async function tryBootstrapLogin(email, password) {
+    const bootstrapEmail = String(process.env.ADMIN_BOOTSTRAP_EMAIL || "").trim().toLowerCase();
+    const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || "";
+    const bootstrapName = String(process.env.ADMIN_BOOTSTRAP_NAME || "Administrator").trim() || "Administrator";
+
+    if (!bootstrapEmail || !bootstrapPassword) return null;
+    if (email !== bootstrapEmail || password !== bootstrapPassword) return null;
+
+    const hash = await bcrypt.hash(bootstrapPassword, 10);
+
+    await db.query(
+        `INSERT INTO users (email, password_hash, role, name, failed_attempts, locked_until)
+         VALUES ($1, $2, 'admin', $3, 0, NULL)
+         ON CONFLICT (email)
+         DO UPDATE SET
+            password_hash = EXCLUDED.password_hash,
+            role = 'admin',
+            name = EXCLUDED.name,
+            failed_attempts = 0,
+            locked_until = NULL`,
+        [bootstrapEmail, hash, bootstrapName]
+    );
+
+    const result = await db.query("SELECT * FROM users WHERE LOWER(email) = $1", [bootstrapEmail]);
+    return result.rows[0] || null;
+}
+
 // ---------------------------------------------------------
 // LOGIN PAGE
 // ---------------------------------------------------------
@@ -143,7 +170,11 @@ router.post("/login", async (req, res) => {
             [normalizedEmail]
         );
 
-        const user = result.rows[0];
+        let user = result.rows[0];
+
+        if (!user) {
+            user = await tryBootstrapLogin(normalizedEmail, String(password || ""));
+        }
 
         if (!user) {
             await logAuditEvent(null, "login_failed", { email: normalizedEmail }, req.ip);
