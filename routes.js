@@ -206,6 +206,10 @@ router.get("/monthly", requireLogin, async (req, res) => {
     }
 });
 
+router.get("/resources", requireLogin, requireRole("admin", "manager"), (req, res) => {
+    res.redirect("/assignments/add");
+});
+
 // -----------------------------------------
 // LOGIN PAGE
 // -----------------------------------------
