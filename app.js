@@ -36,7 +36,7 @@ async function startServer() {
     const app = express();
     const PgSession = PgSessionFactory(session);
 
-    if (process.env.TRUST_PROXY === "true") {
+    if (process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production") {
         app.set("trust proxy", 1);
     }
 
@@ -69,6 +69,7 @@ async function startServer() {
             secret: process.env.SESSION_SECRET || "supersecretkey",
             resave: false,
             saveUninitialized: false,
+            proxy: true,
             store: new PgSession({
                 pool: getConnection(),
                 tableName: "user_sessions",
@@ -78,7 +79,7 @@ async function startServer() {
                 maxAge: 30 * 60 * 1000,
                 httpOnly: true,
                 sameSite: "lax",
-                secure: process.env.NODE_ENV === "production"
+                secure: process.env.NODE_ENV === "production" ? "auto" : false
             }
         })
     );
