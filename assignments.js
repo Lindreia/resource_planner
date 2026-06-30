@@ -157,7 +157,7 @@ router.get("/add", async (req, res) => {
         const teamMembers = (await db.query(teamMembersQuery)).rows;
         const projects = (await db.query(projectsQuery)).rows;
 
-        res.render("add_assignment.html", {
+        res.render("assignments/add_assignment", {
             team_members: teamMembers,
             projects: projects
         });
