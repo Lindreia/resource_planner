@@ -21,6 +21,24 @@ const LOCK_DURATION_MINUTES = 30;
 const MFA_EXPIRY_MINUTES = 10;
 const MFA_MAX_ATTEMPTS = 5;
 
+function regenerateSession(req) {
+    return new Promise((resolve, reject) => {
+        req.session.regenerate((err) => {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
+}
+
+function saveSession(req) {
+    return new Promise((resolve, reject) => {
+        req.session.save((err) => {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
+}
+
 function hasStrongPassword(password) {
     if (!password || password.length < 12) return false;
     if (!/[A-Z]/.test(password)) return false;
@@ -163,7 +181,9 @@ router.post("/login", async (req, res) => {
             return res.redirect("/verify-mfa");
         }
 
-        // Save session with role
+        await regenerateSession(req);
+
+        // Save session with role and explicitly persist before redirect.
         req.session.user = {
             id: user.id,
             name: user.name,
@@ -171,6 +191,7 @@ router.post("/login", async (req, res) => {
             email: user.email,
             lastActivity: Date.now()
         };
+        await saveSession(req);
 
         await logAuditEvent(user.id, "login_success", { email: normalizedEmail }, req.ip);
 
@@ -239,6 +260,8 @@ router.post("/verify-mfa", requirePendingMfa, async (req, res) => {
 
     await db.query("UPDATE mfa_challenges SET used = TRUE WHERE id = $1", [challenge.id]);
 
+    await regenerateSession(req);
+
     req.session.user = {
         id: pending.id,
         name: pending.name,
@@ -247,6 +270,7 @@ router.post("/verify-mfa", requirePendingMfa, async (req, res) => {
         lastActivity: Date.now()
     };
     delete req.session.pendingMfa;
+    await saveSession(req);
 
     await logAuditEvent(req.session.user.id, "login_success", { email: req.session.user.email, mfa: true }, req.ip);
 
