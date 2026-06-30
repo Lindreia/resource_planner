@@ -1,8 +1,10 @@
 const express = require("express");
 const session = require("express-session");
+const PgSessionFactory = require("connect-pg-simple");
 const path = require("path");
 const expressLayouts = require("express-ejs-layouts");
 const { createTables } = require("./create_tables");
+const { getConnection } = require("./database");
 
 // ───────────────────────────────────────────────────────────
 // Process‑level error handlers
@@ -32,6 +34,11 @@ async function startServer() {
     }
 
     const app = express();
+    const PgSession = PgSessionFactory(session);
+
+    if (process.env.TRUST_PROXY === "true") {
+        app.set("trust proxy", 1);
+    }
 
     // ───────────────────────────────────────────────────────────
     // Layout Engine
@@ -62,10 +69,16 @@ async function startServer() {
             secret: process.env.SESSION_SECRET || "supersecretkey",
             resave: false,
             saveUninitialized: false,
+            store: new PgSession({
+                pool: getConnection(),
+                tableName: "user_sessions",
+                createTableIfMissing: true
+            }),
             cookie: {
                 maxAge: 30 * 60 * 1000,
                 httpOnly: true,
-                sameSite: "lax"
+                sameSite: "lax",
+                secure: process.env.NODE_ENV === "production"
             }
         })
     );
@@ -79,6 +92,20 @@ app.use((req, res, next) => {
     res.locals.active_page = null;
     next();
 });
+
+    // Optional IP allowlist for production hardening (comma-separated, exact match).
+    app.use((req, res, next) => {
+        const rawAllowed = process.env.ALLOWED_IPS;
+        if (!rawAllowed) return next();
+
+        const allowed = rawAllowed.split(",").map(s => s.trim()).filter(Boolean);
+        if (allowed.length === 0) return next();
+
+        const reqIp = req.ip || req.connection?.remoteAddress || "";
+        if (allowed.includes(reqIp)) return next();
+
+        return res.status(403).send("Access denied from this IP address.");
+    });
 
     // ───────────────────────────────────────────────────────────
     // Inactivity timeout

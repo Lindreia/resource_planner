@@ -142,6 +142,25 @@ async function createTables() {
         `);
         console.log("Password resets table ensured.");
 
+        // MFA CHALLENGES
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS mfa_challenges (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                code_hash TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                used BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        `);
+
+        await db.query(`
+            CREATE INDEX IF NOT EXISTS idx_mfa_challenges_user_expiry
+            ON mfa_challenges(user_id, expires_at DESC);
+        `);
+        console.log("MFA challenges table ensured.");
+
         console.log("All tables created successfully.");
 
     } catch (err) {

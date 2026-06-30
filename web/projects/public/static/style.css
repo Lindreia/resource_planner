@@ -246,8 +246,9 @@ body {
     background-image: url("/static/logo.jpeg");
     background-position: center;
     background-repeat: no-repeat;
-    background-size: 72vmin;
-    opacity: 0.14;
+    background-size: 78vmin;
+    opacity: 0.12;
+    transform: translate(-1%, -1%);
     pointer-events: none;
 }
 
@@ -262,13 +263,15 @@ body {
 .login-container {
     position: relative;
     z-index: 1;
-    background: rgba(255,255,255,0.94);
-    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     padding: 40px 36px;
-    border-radius: 18px;
+    border-radius: 20px;
     width: min(92vw, 430px);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
-    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    margin: auto;
 }
 
 /* ----------------------------------------------------
@@ -291,3 +294,63 @@ body {
 .util-red { background: #dc2626; }
 .util-orange { background: #f59e0b; }
 .util-green { background: #0b8a4a; }
+
+/* ----------------------------------------------------
+   LOGOUT MODAL
+---------------------------------------------------- */
+.logout-dialog {
+    border: none;
+    border-radius: 14px;
+    padding: 0;
+    background: transparent;
+}
+
+.logout-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+.logout-dialog-card {
+    width: min(92vw, 420px);
+    margin: 0;
+    padding: 24px;
+    background: var(--r8-surface);
+    border: 1px solid var(--r8-border);
+    border-radius: 14px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.22);
+}
+
+.logout-dialog-card h3 {
+    margin: 0 0 8px;
+}
+
+.logout-dialog-card p {
+    margin: 0 0 18px;
+    opacity: 0.8;
+}
+
+.logout-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+}
+
+.logout-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.logout-btn-secondary {
+    background: rgba(0,0,0,0.06);
+    color: var(--r8-text);
+}
+
+.logout-btn-primary {
+    background: #dc2626;
+    color: #fff;
+}

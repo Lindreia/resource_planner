@@ -14,7 +14,7 @@
             <ul class="navbar-nav ms-auto">
 
                 <!-- RESOURCE INPUT (Admin + Manager only) -->
-                <% if (user && ["Admin", "Manager"].includes(user.role)) { %>
+                <% if (user && ["admin", "manager"].includes((user.role || "").toLowerCase())) { %>
                 <li class="nav-item">
                     <a class="nav-link <%= active_page === 'resources' ? 'active fw-bold' : '' %>"
                        href="/resources">
@@ -48,7 +48,7 @@
                 </li>
 
                 <!-- ADMIN ONLY -->
-                <% if (user && user.role === "Admin") { %>
+                <% if (user && (user.role || "").toLowerCase() === "admin") { %>
                 <li class="nav-item">
                     <a class="nav-link <%= active_page === 'admin_users' ? 'active fw-bold' : '' %>"
                        href="/admin/users">
@@ -65,7 +65,7 @@
                         <%= user.name %> (<%= user.role %>)
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="/logout">Logout</a></li>
+                        <li><a class="dropdown-item logout-link" href="/logout">Logout</a></li>
                     </ul>
                 </li>
                 <% } %>
@@ -75,3 +75,4 @@
 
     </div>
 </nav>
+<script src="/static/logout-modal.js"></script>

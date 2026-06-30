@@ -1,141 +1,101 @@
-router.get("/weekly", requireLogin, async (req, res) => {
-    try {
-        const offset = Number(req.query.week_offset || 0);
+<% layout('components/layout') %>
 
-        // Determine week start (Monday)
-        const today = new Date();
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+<div class="container">
+    <h1 class="r8-page-title mb-4">Weekly Dashboard</h1>
 
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
+    <div class="dashboard-card mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <a class="btn btn-sm btn-outline-secondary" href="/weekly?week_offset=<%= prev_week %>">Previous Week</a>
+            <strong><%= week_label %></strong>
+            <a class="btn btn-sm btn-outline-secondary" href="/weekly?week_offset=<%= next_week %>">Next Week</a>
+        </div>
+    </div>
 
-        const startISO = monday.toISOString().slice(0, 10);
-        const endISO = sunday.toISOString().slice(0, 10);
+    <div class="row g-4">
+        <% stats_cards.forEach(card => { %>
+            <div class="col-md-3">
+                <div class="dashboard-card">
+                    <div class="dashboard-card-title"><%= card.label %></div>
+                    <div class="dashboard-kpi"><%= card.value %></div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
 
-        // Labels for UI
-        const week_label = `${startISO} → ${endISO}`;
-        const prev_week = offset - 1;
-        const next_week = offset + 1;
+    <div class="row g-4 mt-1">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Team Utilisation</div>
+                <canvas id="weeklyUtilChart" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Project Hours</div>
+                <canvas id="weeklyProjectChart" height="140"></canvas>
+            </div>
+        </div>
+    </div>
 
-        // TEAM UTILIZATION
-        const teamQuery = `
-            SELECT 
-                u.name,
-                u.weekly_capacity,
-                COALESCE(SUM(a.hours_per_week), 0) AS allocated
-            FROM users u
-            LEFT JOIN assignments a
-                ON a.user_id = u.id
-               AND a.start_date <= $1
-               AND (a.end_date IS NULL OR a.end_date >= $2)
-            GROUP BY u.name, u.weekly_capacity
-            ORDER BY u.name;
-        `;
+    <div class="row g-4 mt-1">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Team Detail</div>
+                <table class="dashboard-mini-table w-100">
+                    <tr><th>Name</th><th>Allocated</th><th>Capacity</th><th>Util %</th></tr>
+                    <% team.forEach(t => { %>
+                        <tr>
+                            <td><%= t.name %></td>
+                            <td><%= t.allocated %></td>
+                            <td><%= t.capacity %></td>
+                            <td><%= t.util %>%</td>
+                        </tr>
+                    <% }) %>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Project Detail</div>
+                <table class="dashboard-mini-table w-100">
+                    <tr><th>Project</th><th>Hours</th><th>Members</th></tr>
+                    <% projects.forEach(p => { %>
+                        <tr>
+                            <td><%= p.code %> - <%= p.name %></td>
+                            <td><%= p.hours %></td>
+                            <td><%= p.members %></td>
+                        </tr>
+                    <% }) %>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
-        const teamResult = await db.query(teamQuery, [endISO, startISO]);
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const teamLabels = <%- JSON.stringify(team.map(t => t.name)) %>;
+    const teamUtil = <%- JSON.stringify(team.map(t => t.util)) %>;
+    const projectLabels = <%- JSON.stringify(projects.map(p => p.code)) %>;
+    const projectHours = <%- JSON.stringify(projects.map(p => Number(p.hours) || 0)) %>;
 
-        const team = teamResult.rows.map(row => {
-            const available = Math.max(row.weekly_capacity - row.allocated, 0);
-            const util = row.weekly_capacity === 0
-                ? 0
-                : Math.round((row.allocated / row.weekly_capacity) * 100);
-
-            return {
-                name: row.name,
-                capacity: row.weekly_capacity,
-                allocated: row.allocated,
-                available,
-                util
-            };
+    const utilCtx = document.getElementById("weeklyUtilChart");
+    if (utilCtx) {
+        new Chart(utilCtx, {
+            type: "bar",
+            data: { labels: teamLabels, datasets: [{ label: "Util %", data: teamUtil, backgroundColor: "#0b8a4a" }] },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 120 } } }
         });
-
-        // PROJECT SUMMARY
-        const projectQuery = `
-            SELECT 
-                p.project_code,
-                p.project_name,
-                COALESCE(SUM(a.hours_per_week), 0) AS total_hours,
-                COUNT(DISTINCT a.user_id) AS members,
-                p.color
-            FROM projects p
-            LEFT JOIN assignments a
-                ON a.project_id = p.id
-               AND a.start_date <= $1
-               AND (a.end_date IS NULL OR a.end_date >= $2)
-            GROUP BY p.project_code, p.project_name, p.color
-            ORDER BY p.project_code;
-        `;
-
-        const projectResult = await db.query(projectQuery, [endISO, startISO]);
-
-        const projects = projectResult.rows.map(row => ({
-            code: row.project_code,
-            name: row.project_name,
-            hours: row.total_hours,
-            members: row.members,
-            color: row.color
-        }));
-
-        // ASSIGNMENT LIST
-        const assignmentQuery = `
-            SELECT 
-                a.id,
-                u.name AS user_name,
-                p.project_code,
-                p.project_name,
-                a.start_date,
-                a.end_date,
-                a.hours_per_week,
-                a.work_days
-            FROM assignments a
-            JOIN users u ON u.id = a.user_id
-            JOIN projects p ON p.id = a.project_id
-            WHERE a.start_date <= $1
-              AND (a.end_date IS NULL OR a.end_date >= $2)
-            ORDER BY u.name, p.project_code;
-        `;
-
-        const assignmentResult = await db.query(assignmentQuery, [endISO, startISO]);
-        const assignments = assignmentResult.rows.map(r => [
-            r.id,
-            r.user_name,
-            r.project_code,
-            r.project_name,
-            r.start_date,
-            r.end_date,
-            r.hours_per_week,
-            r.work_days
-        ]);
-
-        // SUMMARY CARDS
-        const totalCapacity = team.reduce((s, r) => s + r.capacity, 0);
-        const totalAllocated = team.reduce((s, r) => s + r.allocated, 0);
-        const totalAvailable = team.reduce((s, r) => s + r.available, 0);
-        const overbookedCount = team.filter(r => r.allocated > r.capacity).length;
-
-        const stats_cards = [
-            { label: "Team Members", value: team.length },
-            { label: "Total Capacity", value: totalCapacity },
-            { label: "Total Allocated", value: totalAllocated },
-            { label: "Total Available", value: totalAvailable },
-            { label: "Overbooked", value: overbookedCount }
-        ];
-
-        // RENDER PAGE
-        res.render("weekly", {
-            user: req.session.user,
-            week_label,
-            prev_week,
-            next_week,
-            stats_cards,
-            team,
-            projects,
-            assignments
-        });
-
-    } catch (err) {
-        console.error("Weekly dashboard error:", err);
-        res.status(500).send("Server error");
     }
-});
+
+    const projectCtx = document.getElementById("weeklyProjectChart");
+    if (projectCtx) {
+        new Chart(projectCtx, {
+            type: "doughnut",
+            data: { labels: projectLabels, datasets: [{ data: projectHours }] },
+            options: { plugins: { legend: { position: "bottom" } } }
+        });
+    }
+})();
+</script>

@@ -121,8 +121,39 @@
 
     </div>
 
-    <!-- LOCKED ACCOUNTS + ASSIGNMENT TREND -->
+    <!-- NOTIFICATIONS + ASSIGNMENT TREND -->
     <div class="row g-4 mt-2">
+
+        <!-- RECENT NOTIFICATIONS -->
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Admin Notifications</div>
+                <form method="POST" action="/admin/notifications/read-all" class="mb-2 text-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">Mark All Read</button>
+                </form>
+
+                <table class="dashboard-mini-table w-100">
+                    <% if (notifications && notifications.length > 0) { %>
+                        <% notifications.forEach(n => { %>
+                            <tr>
+                                <td>
+                                    <div><strong><%= n.type.replace(/_/g, ' ') %></strong></div>
+                                    <div class="small text-muted"><%= n.payload ? JSON.stringify(n.payload) : '' %></div>
+                                </td>
+                                <td class="text-end">
+                                    <span class="dashboard-status dashboard-status-amber">New</span>
+                                    <form method="POST" action="/admin/notifications/<%= n.id %>/read" class="mt-1">
+                                        <button class="btn btn-sm btn-link p-0" type="submit">Mark Read</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2" class="text-muted">No new notifications</td></tr>
+                    <% } %>
+                </table>
+            </div>
+        </div>
 
         <!-- LOCKED ACCOUNTS -->
         <div class="col-md-6">
