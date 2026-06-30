@@ -104,23 +104,24 @@ router.get("/verify-mfa", requirePendingMfa, (req, res) => {
 // ---------------------------------------------------------
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
     try {
         const result = await db.query(
-            "SELECT * FROM users WHERE email = $1",
-            [email]
+            "SELECT * FROM users WHERE LOWER(email) = $1",
+            [normalizedEmail]
         );
 
         const user = result.rows[0];
 
         if (!user) {
-            await logAuditEvent(null, "login_failed", { email }, req.ip);
+            await logAuditEvent(null, "login_failed", { email: normalizedEmail }, req.ip);
             return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
         // Account lock check
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
-            await logAuditEvent(user.id, "login_locked", { email }, req.ip);
+            await logAuditEvent(user.id, "login_locked", { email: normalizedEmail }, req.ip);
             return res.render("login", { error: "Account locked. Contact admin.", layout: false });
         }
 
@@ -139,7 +140,7 @@ router.post("/login", async (req, res) => {
                 [failed, lockedUntil, user.id]
             );
 
-            await logAuditEvent(user.id, "login_failed", { email, failed_attempts: failed }, req.ip);
+            await logAuditEvent(user.id, "login_failed", { email: normalizedEmail, failed_attempts: failed }, req.ip);
             return res.render("login", { error: "Invalid email or password", layout: false });
         }
 
@@ -158,7 +159,7 @@ router.post("/login", async (req, res) => {
             };
 
             await createMfaChallenge(user.id, user.email);
-            await logAuditEvent(user.id, "mfa_required", { email }, req.ip);
+            await logAuditEvent(user.id, "mfa_required", { email: normalizedEmail }, req.ip);
             return res.redirect("/verify-mfa");
         }
 
@@ -171,7 +172,7 @@ router.post("/login", async (req, res) => {
             lastActivity: Date.now()
         };
 
-        await logAuditEvent(user.id, "login_success", { email }, req.ip);
+        await logAuditEvent(user.id, "login_success", { email: normalizedEmail }, req.ip);
 
         if (user.role === "admin") {
             return res.redirect("/admin/dashboard");
@@ -380,6 +381,8 @@ router.get("/setup-admin", async (req, res) => {
             return res.send("Admin already exists. Setup skipped.");
         }
 
+        const bootstrapEmail = String(process.env.ADMIN_BOOTSTRAP_EMAIL || "admin@planner.com").trim().toLowerCase();
+        const bootstrapName = String(process.env.ADMIN_BOOTSTRAP_NAME || "Administrator").trim() || "Administrator";
         const initialPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || "AdminChangeMe123!";
 
         if (!hasStrongPassword(initialPassword)) {
@@ -390,10 +393,10 @@ router.get("/setup-admin", async (req, res) => {
 
         await db.query(
             "INSERT INTO users (email, password_hash, role, name) VALUES ($1, $2, $3, $4)",
-            ["admin@planner.com", hashed, "admin", "Administrator"]
+            [bootstrapEmail, hashed, "admin", bootstrapName]
         );
 
-        res.send("Admin user created successfully.");
+        res.send(`Admin user created successfully for ${bootstrapEmail}.`);
     } catch (err) {
         console.error("setup-admin error:", err);
         res.status(500).send("Failed to create admin user.");
