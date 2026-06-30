@@ -26,6 +26,10 @@ router.get("/monthly", requireLogin, (req, res) => {
     res.render("monthly", { user: req.session.user });
 });
 
+router.get("/resources", requireLogin, requireRole("admin", "manager"), (req, res) => {
+    res.redirect("/assignments/add");
+});
+
 // -----------------------------------------
 // LOGIN PAGE
 // -----------------------------------------
