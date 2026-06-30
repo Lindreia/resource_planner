@@ -11,7 +11,8 @@ const db = getConnection();
 // PAGE ROUTES (EJS templates)
 // -----------------------------------------
 router.get("/", requireLogin, (req, res) => {
-    res.render("weekly", { user: req.session.user });
+    // Reuse the full weekly data route so template vars are always populated.
+    res.redirect("/weekly");
 });
 
 router.get("/weekly", requireLogin, async (req, res) => {
