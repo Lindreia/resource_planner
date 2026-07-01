@@ -7,6 +7,13 @@ const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
 
+function renderManager(res, view, data) {
+    return res.render(view, {
+        ...(data || {}),
+        layout: false
+    });
+}
+
 function buildManagerStats(teamCount, todayBookings, pendingApprovals, projectCount) {
     return {
         teamCount,
@@ -37,7 +44,7 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
         const pendingApprovalsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'pending'");
         const projectCountResult = await db.query("SELECT COUNT(*)::int AS count FROM projects");
 
-        res.render("manager-dashboard", {
+        renderManager(res, "manager-dashboard", {
             stats: buildManagerStats(
                 teamCountResult.rows[0].count,
                 todayBookingsResult.rows[0].count,
@@ -60,7 +67,7 @@ router.get("/team", requireLogin, requireRole("admin", "manager"), async (req, r
             "SELECT id, name, email, role FROM users WHERE role IN ('staff','manager','admin') ORDER BY name ASC"
         )).rows;
 
-        res.render("manager-team", { team });
+        renderManager(res, "manager-team", { team });
     } catch (err) {
         console.error("Manager team error:", err);
         res.status(500).send("Failed to load team page");
@@ -102,7 +109,7 @@ router.get("/team/:id", requireLogin, requireRole("admin", "manager"), async (re
             [member.id]
         )).rows;
 
-        res.render("manager-team-detail", {
+        renderManager(res, "manager-team-detail", {
             member,
             availability,
             bookings,
@@ -127,7 +134,7 @@ router.get("/projects", requireLogin, requireRole("admin", "manager"), async (re
              ORDER BY p.project_code`
         )).rows;
 
-        res.render("manager-projects", { projects, error: null, message: null });
+        renderManager(res, "manager-projects", { projects, error: null, message: null });
     } catch (err) {
         console.error("Manager projects error:", err);
         res.status(500).send("Failed to load project list");
@@ -171,7 +178,7 @@ router.get("/projects/:id", requireLogin, requireRole("admin", "manager"), async
             [projectRow.id]
         )).rows;
 
-        res.render("manager-project-detail", {
+        renderManager(res, "manager-project-detail", {
             project: {
                 name: projectRow.project_name,
                 status: team.length > 0 ? "Active" : "No assignments",
@@ -225,7 +232,7 @@ router.get("/bookings", requireLogin, requireRole("admin", "manager"), async (re
         const bookings = (await db.query(query, params)).rows;
         const team = (await db.query("SELECT id, name FROM users WHERE role = 'staff' ORDER BY name ASC")).rows;
 
-        res.render("manager-bookings", {
+        renderManager(res, "manager-bookings", {
             bookings,
             team,
             filters,
@@ -349,7 +356,7 @@ router.get("/bookings/:id", requireLogin, requireRole("admin", "manager"), async
             return res.status(404).send("Booking not found");
         }
 
-        res.render("manager-booking-detail", {
+        renderManager(res, "manager-booking-detail", {
             booking: bookingResult.rows[0],
             message: req.query.message || null,
             error: req.query.error || null
@@ -410,7 +417,7 @@ router.get("/availability", requireLogin, requireRole("admin", "manager"), async
              ORDER BY u.name ASC, a.start_date DESC`
         )).rows;
 
-        res.render("manager-availability", { availability });
+        renderManager(res, "manager-availability", { availability });
     } catch (err) {
         console.error("Manager availability error:", err);
         res.status(500).send("Failed to load availability page");
@@ -430,7 +437,7 @@ router.get("/approvals", requireLogin, requireRole("admin", "manager"), async (r
              ORDER BY b.date DESC, u.name ASC`
         )).rows;
 
-        res.render("manager-approvals", {
+        renderManager(res, "manager-approvals", {
             requests,
             error: null,
             message: null
@@ -477,7 +484,7 @@ router.get("/allocation", requireLogin, requireRole("admin", "manager"), async (
             projects: projectsMap.get(row.id) || []
         }));
 
-        res.render("manager-allocation", {
+        renderManager(res, "manager-allocation", {
             allocations,
             filters: { week: req.query.week || "" },
             error: null,
