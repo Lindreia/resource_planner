@@ -5,7 +5,11 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <a class="btn btn-sm btn-outline-secondary" href="/weekly?week_offset=<%= prev_week %>">Previous Week</a>
             <strong><%= week_label %></strong>
-            <a class="btn btn-sm btn-outline-secondary" href="/weekly?week_offset=<%= next_week %>">Next Week</a>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-success" href="/exports/weekly.csv?week_offset=<%= next_week - 1 %>">Export CSV</a>
+                <a class="btn btn-sm btn-outline-primary" href="/exports/weekly.pdf?week_offset=<%= next_week - 1 %>">Export PDF</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/weekly?week_offset=<%= next_week %>">Next Week</a>
+            </div>
         </div>
     </div>
 

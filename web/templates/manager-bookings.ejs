@@ -67,6 +67,11 @@
             <button class="login-btn small-btn" type="submit">Apply Filters</button>
         </form>
 
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="login-btn small-btn" href="/manager/bookings/export.csv?date=<%= encodeURIComponent(filters.date || '') %>&user_id=<%= encodeURIComponent(filters.user_id || '') %>">Export CSV</a>
+            <a class="login-btn small-btn" href="/manager/bookings/export.pdf?date=<%= encodeURIComponent(filters.date || '') %>&user_id=<%= encodeURIComponent(filters.user_id || '') %>">Export PDF</a>
+        </div>
+
         <!-- Booking Table -->
         <% if (bookings.length === 0) { %>
             <div class="info-text">No bookings found for the selected filters.</div>

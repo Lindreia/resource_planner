@@ -5,7 +5,11 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <a class="btn btn-sm btn-outline-secondary" href="/daily?date=<%= previous_date %>">Previous Day</a>
             <strong><%= selected_date %></strong>
-            <a class="btn btn-sm btn-outline-secondary" href="/daily?date=<%= next_date %>">Next Day</a>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-success" href="/exports/daily.csv?date=<%= selected_date %>">Export CSV</a>
+                <a class="btn btn-sm btn-outline-primary" href="/exports/daily.pdf?date=<%= selected_date %>">Export PDF</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/daily?date=<%= next_date %>">Next Day</a>
+            </div>
         </div>
     </div>
 

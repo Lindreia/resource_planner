@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const PDFDocument = require("pdfkit");
 const { getConnection } = require("./database");
 const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
@@ -13,6 +14,20 @@ function buildManagerStats(teamCount, todayBookings, pendingApprovals, projectCo
         pendingApprovals,
         projectCount
     };
+}
+
+function csvEscape(value) {
+    const str = value === null || value === undefined ? "" : String(value);
+    if (str.includes(",") || str.includes("\n") || str.includes('"')) {
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+}
+
+function buildCsv(headers, rows) {
+    const headerLine = headers.map(csvEscape).join(",");
+    const lines = rows.map(row => row.map(csvEscape).join(","));
+    return [headerLine, ...lines].join("\n");
 }
 
 router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (req, res) => {
@@ -220,6 +235,101 @@ router.get("/bookings", requireLogin, requireRole("admin", "manager"), async (re
     } catch (err) {
         console.error("Manager bookings error:", err);
         res.status(500).send("Failed to load bookings page");
+    }
+});
+
+router.get("/bookings/export.csv", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+    try {
+        const filters = {
+            date: req.query.date || "",
+            user_id: req.query.user_id || ""
+        };
+
+        let query = `
+            SELECT b.id, b.date, b.hours, b.status,
+                   u.name AS user_name,
+                   p.project_name
+            FROM bookings b
+            JOIN users u ON u.id = b.user_id
+            JOIN projects p ON p.id = b.project_id
+            WHERE 1 = 1
+        `;
+        const params = [];
+
+        if (filters.date) {
+            params.push(filters.date);
+            query += ` AND b.date = $${params.length}`;
+        }
+
+        if (filters.user_id) {
+            params.push(filters.user_id);
+            query += ` AND b.user_id = $${params.length}`;
+        }
+
+        query += " ORDER BY b.date DESC, u.name ASC";
+
+        const bookings = (await db.query(query, params)).rows;
+        const rows = bookings.map((b) => [b.id, b.user_name, b.project_name, b.date, b.hours, b.status]);
+        const csv = buildCsv(["id", "team_member", "project", "date", "hours", "status"], rows);
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", "attachment; filename=manager-bookings.csv");
+        return res.send(csv);
+    } catch (err) {
+        console.error("Manager bookings CSV export error:", err);
+        return res.status(500).send("Failed to export bookings CSV");
+    }
+});
+
+router.get("/bookings/export.pdf", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+    try {
+        const filters = {
+            date: req.query.date || "",
+            user_id: req.query.user_id || ""
+        };
+
+        let query = `
+            SELECT b.id, b.date, b.hours, b.status,
+                   u.name AS user_name,
+                   p.project_name
+            FROM bookings b
+            JOIN users u ON u.id = b.user_id
+            JOIN projects p ON p.id = b.project_id
+            WHERE 1 = 1
+        `;
+        const params = [];
+
+        if (filters.date) {
+            params.push(filters.date);
+            query += ` AND b.date = $${params.length}`;
+        }
+
+        if (filters.user_id) {
+            params.push(filters.user_id);
+            query += ` AND b.user_id = $${params.length}`;
+        }
+
+        query += " ORDER BY b.date DESC, u.name ASC";
+        const bookings = (await db.query(query, params)).rows;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", "attachment; filename=manager-bookings.pdf");
+
+        const doc = new PDFDocument({ margin: 40, size: "A4" });
+        doc.pipe(res);
+        doc.fontSize(18).text("Manager Bookings Export", { underline: true });
+        doc.moveDown(0.8);
+        doc.fontSize(10).text("ID | Team Member | Project | Date | Hours | Status");
+        doc.moveDown(0.4);
+
+        bookings.forEach((b) => {
+            doc.text(`${b.id} | ${b.user_name} | ${b.project_name} | ${b.date} | ${b.hours} | ${b.status}`);
+        });
+
+        return doc.end();
+    } catch (err) {
+        console.error("Manager bookings PDF export error:", err);
+        return res.status(500).send("Failed to export bookings PDF");
     }
 });
 

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { getConnection } = require("./database");
 const bcrypt = require("bcryptjs");
+const PDFDocument = require("pdfkit");
 const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
 
@@ -39,6 +40,31 @@ async function resolveVisibleUserIds(user) {
     }
 
     return [userId];
+}
+
+function csvEscape(value) {
+    const str = value === null || value === undefined ? "" : String(value);
+    if (str.includes(",") || str.includes("\n") || str.includes('"')) {
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+}
+
+function buildCsv(headers, rows) {
+    const headerLine = headers.map(csvEscape).join(",");
+    const lines = rows.map(row => row.map(csvEscape).join(","));
+    return [headerLine, ...lines].join("\n");
+}
+
+function startPdf(res, filename, title) {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
+    doc.pipe(res);
+    doc.fontSize(18).text(title, { underline: true });
+    doc.moveDown(0.7);
+    return doc;
 }
 
 // -----------------------------------------
@@ -257,6 +283,246 @@ router.get("/monthly", requireLogin, async (req, res) => {
     } catch (err) {
         console.error("Monthly planner error:", err);
         res.status(500).send("Server error");
+    }
+});
+
+router.get("/exports/weekly.csv", requireLogin, async (req, res) => {
+    try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
+        const offset = Number(req.query.week_offset || 0);
+
+        const today = new Date();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        const startISO = monday.toISOString().slice(0, 10);
+        const endISO = sunday.toISOString().slice(0, 10);
+
+        const teamParams = [endISO, startISO];
+        if (scopedUserIds) teamParams.push(scopedUserIds);
+
+        const teamQuery = `
+            SELECT u.name, u.weekly_capacity, COALESCE(SUM(a.hours_per_week), 0) AS allocated
+            FROM users u
+            LEFT JOIN assignments a
+                ON a.user_id = u.id
+               AND a.start_date <= $1
+               AND (a.end_date IS NULL OR a.end_date >= $2)
+            ${scopedUserIds ? "WHERE u.id = ANY($3::int[])" : ""}
+            GROUP BY u.id, u.name, u.weekly_capacity
+            ORDER BY u.name;
+        `;
+
+        const team = (await db.query(teamQuery, teamParams)).rows;
+        const rows = team.map(t => [
+            startISO,
+            endISO,
+            t.name,
+            Number(t.weekly_capacity) || 0,
+            Number(t.allocated) || 0,
+            Math.max((Number(t.weekly_capacity) || 0) - (Number(t.allocated) || 0), 0)
+        ]);
+
+        const csv = buildCsv(
+            ["week_start", "week_end", "team_member", "capacity", "allocated", "available"],
+            rows
+        );
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename=weekly-${startISO}.csv`);
+        return res.send(csv);
+    } catch (err) {
+        console.error("Weekly CSV export error:", err);
+        return res.status(500).send("Failed to export weekly CSV");
+    }
+});
+
+router.get("/exports/weekly.pdf", requireLogin, async (req, res) => {
+    try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
+        const offset = Number(req.query.week_offset || 0);
+
+        const today = new Date();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        const startISO = monday.toISOString().slice(0, 10);
+        const endISO = sunday.toISOString().slice(0, 10);
+
+        const params = [endISO, startISO];
+        if (scopedUserIds) params.push(scopedUserIds);
+
+        const teamQuery = `
+            SELECT u.name, u.weekly_capacity, COALESCE(SUM(a.hours_per_week), 0) AS allocated
+            FROM users u
+            LEFT JOIN assignments a
+                ON a.user_id = u.id
+               AND a.start_date <= $1
+               AND (a.end_date IS NULL OR a.end_date >= $2)
+            ${scopedUserIds ? "WHERE u.id = ANY($3::int[])" : ""}
+            GROUP BY u.id, u.name, u.weekly_capacity
+            ORDER BY u.name;
+        `;
+        const team = (await db.query(teamQuery, params)).rows;
+
+        const doc = startPdf(res, `weekly-${startISO}.pdf`, `Weekly Dashboard Export (${startISO} to ${endISO})`);
+        doc.fontSize(11).text("Team Member | Capacity | Allocated | Available");
+        doc.moveDown(0.4);
+
+        team.forEach((t) => {
+            const capacity = Number(t.weekly_capacity) || 0;
+            const allocated = Number(t.allocated) || 0;
+            const available = Math.max(capacity - allocated, 0);
+            doc.text(`${t.name} | ${capacity} | ${allocated} | ${available}`);
+        });
+
+        doc.end();
+    } catch (err) {
+        console.error("Weekly PDF export error:", err);
+        res.status(500).send("Failed to export weekly PDF");
+    }
+});
+
+router.get("/exports/daily.csv", requireLogin, async (req, res) => {
+    try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
+        const selected = req.query.date ? new Date(req.query.date) : new Date();
+        const dayISO = selected.toISOString().slice(0, 10);
+
+        const params = [dayISO];
+        if (scopedUserIds) params.push(scopedUserIds);
+
+        const rowsResult = await db.query(
+            `SELECT u.name AS user_name, p.project_code, p.project_name, b.hours
+             FROM bookings b
+             JOIN users u ON u.id = b.user_id
+             JOIN projects p ON p.id = b.project_id
+             WHERE b.date = $1
+             ${scopedUserIds ? "AND b.user_id = ANY($2::int[])" : ""}
+             ORDER BY u.name, p.project_code`,
+            params
+        );
+
+        const rows = rowsResult.rows.map(r => [dayISO, r.user_name, r.project_code, r.project_name, Number(r.hours) || 0]);
+        const csv = buildCsv(["date", "team_member", "project_code", "project_name", "hours"], rows);
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename=daily-${dayISO}.csv`);
+        return res.send(csv);
+    } catch (err) {
+        console.error("Daily CSV export error:", err);
+        return res.status(500).send("Failed to export daily CSV");
+    }
+});
+
+router.get("/exports/daily.pdf", requireLogin, async (req, res) => {
+    try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
+        const selected = req.query.date ? new Date(req.query.date) : new Date();
+        const dayISO = selected.toISOString().slice(0, 10);
+
+        const params = [dayISO];
+        if (scopedUserIds) params.push(scopedUserIds);
+
+        const rows = (await db.query(
+            `SELECT u.name AS user_name, p.project_code, p.project_name, b.hours
+             FROM bookings b
+             JOIN users u ON u.id = b.user_id
+             JOIN projects p ON p.id = b.project_id
+             WHERE b.date = $1
+             ${scopedUserIds ? "AND b.user_id = ANY($2::int[])" : ""}
+             ORDER BY u.name, p.project_code`,
+            params
+        )).rows;
+
+        const doc = startPdf(res, `daily-${dayISO}.pdf`, `Daily Dashboard Export (${dayISO})`);
+        doc.fontSize(11).text("Team Member | Project | Hours");
+        doc.moveDown(0.4);
+        rows.forEach((r) => doc.text(`${r.user_name} | ${r.project_code} - ${r.project_name} | ${Number(r.hours) || 0}`));
+        doc.end();
+    } catch (err) {
+        console.error("Daily PDF export error:", err);
+        res.status(500).send("Failed to export daily PDF");
+    }
+});
+
+router.get("/exports/monthly.csv", requireLogin, async (req, res) => {
+    try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
+        const now = new Date();
+        const selected = req.query.start
+            ? new Date(req.query.start)
+            : new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const monthStart = new Date(selected.getFullYear(), selected.getMonth(), 1);
+        const monthEnd = new Date(selected.getFullYear(), selected.getMonth() + 1, 0);
+        const startISO = monthStart.toISOString().slice(0, 10);
+        const endISO = monthEnd.toISOString().slice(0, 10);
+
+        const params = [startISO, endISO];
+        if (scopedUserIds) params.push(scopedUserIds);
+
+        const summary = (await db.query(
+            `SELECT p.project_code, p.project_name, COALESCE(SUM(b.hours), 0) AS total_hours
+             FROM projects p
+             LEFT JOIN bookings b ON b.project_id = p.id AND b.date BETWEEN $1 AND $2
+             ${scopedUserIds ? "AND b.user_id = ANY($3::int[])" : ""}
+             GROUP BY p.project_code, p.project_name
+             ORDER BY p.project_code`,
+            params
+        )).rows;
+
+        const rows = summary.map(s => [startISO, endISO, s.project_code, s.project_name, Number(s.total_hours) || 0]);
+        const csv = buildCsv(["month_start", "month_end", "project_code", "project_name", "total_hours"], rows);
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename=monthly-${startISO}.csv`);
+        return res.send(csv);
+    } catch (err) {
+        console.error("Monthly CSV export error:", err);
+        return res.status(500).send("Failed to export monthly CSV");
+    }
+});
+
+router.get("/exports/monthly.pdf", requireLogin, async (req, res) => {
+    try {
+        const scopedUserIds = await resolveVisibleUserIds(req.session.user);
+        const now = new Date();
+        const selected = req.query.start
+            ? new Date(req.query.start)
+            : new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const monthStart = new Date(selected.getFullYear(), selected.getMonth(), 1);
+        const monthEnd = new Date(selected.getFullYear(), selected.getMonth() + 1, 0);
+        const startISO = monthStart.toISOString().slice(0, 10);
+        const endISO = monthEnd.toISOString().slice(0, 10);
+
+        const params = [startISO, endISO];
+        if (scopedUserIds) params.push(scopedUserIds);
+
+        const summary = (await db.query(
+            `SELECT p.project_code, p.project_name, COALESCE(SUM(b.hours), 0) AS total_hours
+             FROM projects p
+             LEFT JOIN bookings b ON b.project_id = p.id AND b.date BETWEEN $1 AND $2
+             ${scopedUserIds ? "AND b.user_id = ANY($3::int[])" : ""}
+             GROUP BY p.project_code, p.project_name
+             ORDER BY p.project_code`,
+            params
+        )).rows;
+
+        const doc = startPdf(res, `monthly-${startISO}.pdf`, `Monthly Dashboard Export (${startISO} to ${endISO})`);
+        doc.fontSize(11).text("Project | Total Hours");
+        doc.moveDown(0.4);
+        summary.forEach((s) => doc.text(`${s.project_code} - ${s.project_name} | ${Number(s.total_hours) || 0}`));
+        doc.end();
+    } catch (err) {
+        console.error("Monthly PDF export error:", err);
+        res.status(500).send("Failed to export monthly PDF");
     }
 });
 

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const PDFDocument = require("pdfkit");
 const { getConnection } = require("./database");
 const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
@@ -35,6 +36,20 @@ function logAuditEvent(userId, eventType, details, ip) {
         "INSERT INTO audit_logs (user_id, event_type, details, ip) VALUES ($1, $2, $3, $4)",
         [userId, eventType, JSON.stringify(details || {}), ip]
     );
+}
+
+function csvEscape(value) {
+    const str = value === null || value === undefined ? "" : String(value);
+    if (str.includes(",") || str.includes("\n") || str.includes('"')) {
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+}
+
+function buildCsv(headers, rows) {
+    const headerLine = headers.map(csvEscape).join(",");
+    const lines = rows.map(row => row.map(csvEscape).join(","));
+    return [headerLine, ...lines].join("\n");
 }
 
 // ---------------------------------------------------------
@@ -402,6 +417,69 @@ router.get("/users", requireLogin, requireRole("admin"), async (req, res) => {
     } catch (err) {
         console.error("User list error:", err);
         res.status(500).send("Failed to load users");
+    }
+});
+
+router.get("/users/export.csv", requireLogin, requireRole("admin"), async (req, res) => {
+    try {
+        const users = (await db.query(
+            `SELECT id, name, email, role, is_active, locked_until, created_at
+             FROM users
+             ORDER BY id ASC`
+        )).rows;
+
+        const rows = users.map((u) => [
+            u.id,
+            u.name,
+            u.email,
+            u.role,
+            u.is_active === false ? "deactivated" : "active",
+            u.locked_until || "",
+            u.created_at
+        ]);
+
+        const csv = buildCsv(
+            ["id", "name", "email", "role", "status", "locked_until", "created_at"],
+            rows
+        );
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", "attachment; filename=admin-users.csv");
+        return res.send(csv);
+    } catch (err) {
+        console.error("Admin users CSV export error:", err);
+        return res.status(500).send("Failed to export users CSV");
+    }
+});
+
+router.get("/users/export.pdf", requireLogin, requireRole("admin"), async (req, res) => {
+    try {
+        const users = (await db.query(
+            `SELECT id, name, email, role, is_active, locked_until
+             FROM users
+             ORDER BY id ASC`
+        )).rows;
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", "attachment; filename=admin-users.pdf");
+
+        const doc = new PDFDocument({ margin: 40, size: "A4" });
+        doc.pipe(res);
+        doc.fontSize(18).text("Admin Users Export", { underline: true });
+        doc.moveDown(0.8);
+        doc.fontSize(10).text("ID | Name | Email | Role | Status | Locked");
+        doc.moveDown(0.4);
+
+        users.forEach((u) => {
+            const status = u.is_active === false ? "deactivated" : "active";
+            const locked = u.locked_until ? "yes" : "no";
+            doc.text(`${u.id} | ${u.name} | ${u.email} | ${u.role} | ${status} | ${locked}`);
+        });
+
+        return doc.end();
+    } catch (err) {
+        console.error("Admin users PDF export error:", err);
+        return res.status(500).send("Failed to export users PDF");
     }
 });
 
