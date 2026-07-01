@@ -2,64 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title><%= member.name %> | Team Member</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-
-<body data-theme="light">
-
-<div class="layout">
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <span class="sidebar-logo">R8</span>
-            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-        </div>
-
-        <nav class="sidebar-nav">
-            <a href="/manager/dashboard" class="nav-link">📊 <span class="nav-text">Dashboard</span></a>
-            <a href="/manager/projects" class="nav-link">📁 <span class="nav-text">Projects</span></a>
-            <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
-            <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
-            <a href="/manager/team" class="nav-link active">👥 <span class="nav-text">Team</span></a>
-            <a href="/logout" class="nav-link logout-link">Logout</a>
-        </nav>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="content">
-
-        <h2><%= member.name %></h2>
-        <p class="subtitle">Team Member Profile</p>
-
-        <% if (error) { %>
-            <div class="error-box"><%= error %></div>
-        <% } %>
-
-        <% if (message) { %>
-            <div class="success-box"><%= message %></div>
-        <% } %>
-
-        <!-- Profile Section -->
-        <div class="profile-card">
-            <p><strong>Email:</strong> <%= member.email %></p>
-            <p><strong>Role:</strong> <%= member.role %></p>
-            <p><strong>Status:</strong>
-                <% if (member.locked_until) { %>
-                    🔒 Locked
-                <% } else { %>
-                    ✔ Active
-                <% } %>
-            </p>
-        </div>
-
-        <!-- Availability Section -->
-        <h3 class="section-title">Availability</h3>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
     <title>Projects | Resource Planner</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
