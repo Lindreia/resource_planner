@@ -9,6 +9,26 @@ const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
 const ALLOWED_ROLES = new Set(["admin", "manager", "staff", "viewer", "client"]);
+const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_SET = new Set(WEEKDAY_ORDER);
+
+function normalizeWorkingDays(inputDays) {
+    const days = Array.isArray(inputDays)
+        ? inputDays
+        : (inputDays ? [inputDays] : []);
+
+    const uniqueDays = WEEKDAY_ORDER.filter((d) => days.includes(d));
+    return uniqueDays;
+}
+
+function parseWorkingDaysCsv(value) {
+    if (!value) return ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+    return String(value)
+        .split(",")
+        .map((v) => v.trim())
+        .filter((d) => WEEKDAY_SET.has(d));
+}
 
 function hasStrongPassword(password) {
     if (!password || password.length < 12) return false;
@@ -495,6 +515,8 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const role = String(req.body.role || "").trim().toLowerCase();
+    const weeklyCapacity = Number(req.body.weekly_capacity);
+    const workingDays = normalizeWorkingDays(req.body.working_days);
 
     if (!name || !email || !password || !role) {
         return res.render("admin-add-user", {
@@ -520,6 +542,22 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
         });
     }
 
+    if (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0) {
+        return res.render("admin-add-user", {
+            error: "Weekly capacity must be a positive number.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
+    if (workingDays.length === 0) {
+        return res.render("admin-add-user", {
+            error: "Select at least one working day.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
     try {
         const existing = await db.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
         if (existing.rows.length > 0) {
@@ -532,10 +570,20 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
 
         const hash = await bcrypt.hash(password, 10);
         const inserted = await db.query(
-            `INSERT INTO users (email, password_hash, role, name, failed_attempts, locked_until, mfa_enabled)
-             VALUES ($1, $2, $3, $4, 0, NULL, FALSE)
+            `INSERT INTO users (
+                email,
+                password_hash,
+                role,
+                name,
+                weekly_capacity,
+                working_days,
+                failed_attempts,
+                locked_until,
+                mfa_enabled
+            )
+             VALUES ($1, $2, $3, $4, $5, $6, 0, NULL, FALSE)
              RETURNING id, email, role, name`,
-            [email, hash, role, name]
+            [email, hash, role, name, weeklyCapacity, workingDays.join(",")]
         );
 
         await logAuditEvent(req.session.user.id, "user_created", {
@@ -558,6 +606,199 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
 router.post("/users/add", requireLogin, requireRole("admin"), async (req, res) => {
     req.url = "/add-user";
     return router.handle(req, res);
+});
+
+router.get("/edit-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = Number(req.params.id);
+
+    try {
+        const result = await db.query(
+            "SELECT id, name, email, role, weekly_capacity, working_days FROM users WHERE id = $1",
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return redirectUsers(res, null, "User not found");
+        }
+
+        const user = result.rows[0];
+        user.selected_working_days = parseWorkingDaysCsv(user.working_days);
+
+        return res.render("admin-edit-user", {
+            user,
+            error: null,
+            message: null,
+            active_page: "admin_users"
+        });
+    } catch (err) {
+        console.error("Edit user page error:", err);
+        return redirectUsers(res, null, "Failed to load user edit page");
+    }
+});
+
+router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = Number(req.params.id);
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const role = String(req.body.role || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+    const weeklyCapacity = Number(req.body.weekly_capacity);
+    const workingDays = normalizeWorkingDays(req.body.working_days);
+
+    if (!name || !email || !role) {
+        return res.render("admin-edit-user", {
+            user: {
+                id: userId,
+                name,
+                email,
+                role,
+                weekly_capacity: req.body.weekly_capacity,
+                selected_working_days: workingDays
+            },
+            error: "Name, email, and role are required.",
+            message: null,
+            active_page: "admin_users"
+        });
+    }
+
+    if (!ALLOWED_ROLES.has(role)) {
+        return res.render("admin-edit-user", {
+            user: {
+                id: userId,
+                name,
+                email,
+                role,
+                weekly_capacity: req.body.weekly_capacity,
+                selected_working_days: workingDays
+            },
+            error: "Invalid role selected.",
+            message: null,
+            active_page: "admin_users"
+        });
+    }
+
+    if (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0) {
+        return res.render("admin-edit-user", {
+            user: {
+                id: userId,
+                name,
+                email,
+                role,
+                weekly_capacity: req.body.weekly_capacity,
+                selected_working_days: workingDays
+            },
+            error: "Weekly capacity must be a positive number.",
+            message: null,
+            active_page: "admin_users"
+        });
+    }
+
+    if (workingDays.length === 0) {
+        return res.render("admin-edit-user", {
+            user: {
+                id: userId,
+                name,
+                email,
+                role,
+                weekly_capacity: req.body.weekly_capacity,
+                selected_working_days: workingDays
+            },
+            error: "Select at least one working day.",
+            message: null,
+            active_page: "admin_users"
+        });
+    }
+
+    try {
+        const existing = await db.query(
+            "SELECT id FROM users WHERE LOWER(email) = $1 AND id <> $2",
+            [email, userId]
+        );
+
+        if (existing.rows.length > 0) {
+            return res.render("admin-edit-user", {
+                user: {
+                    id: userId,
+                    name,
+                    email,
+                    role,
+                    weekly_capacity: req.body.weekly_capacity,
+                    selected_working_days: workingDays
+                },
+                error: "A user with that email already exists.",
+                message: null,
+                active_page: "admin_users"
+            });
+        }
+
+        if (password) {
+            if (!hasStrongPassword(password)) {
+                return res.render("admin-edit-user", {
+                    user: {
+                        id: userId,
+                        name,
+                        email,
+                        role,
+                        weekly_capacity: req.body.weekly_capacity,
+                        selected_working_days: workingDays
+                    },
+                    error: passwordPolicyMessage(),
+                    message: null,
+                    active_page: "admin_users"
+                });
+            }
+
+            const hash = await bcrypt.hash(password, 10);
+            await db.query(
+                `UPDATE users
+                 SET name = $1,
+                     email = $2,
+                     role = $3,
+                     weekly_capacity = $4,
+                     working_days = $5,
+                     password_hash = $6,
+                     updated_at = NOW()
+                 WHERE id = $7`,
+                [name, email, role, weeklyCapacity, workingDays.join(","), hash, userId]
+            );
+        } else {
+            await db.query(
+                `UPDATE users
+                 SET name = $1,
+                     email = $2,
+                     role = $3,
+                     weekly_capacity = $4,
+                     working_days = $5,
+                     updated_at = NOW()
+                 WHERE id = $6`,
+                [name, email, role, weeklyCapacity, workingDays.join(","), userId]
+            );
+        }
+
+        await logAuditEvent(req.session.user.id, "user_updated", {
+            user_id: userId,
+            role,
+            weekly_capacity: weeklyCapacity,
+            working_days: workingDays
+        }, req.ip);
+
+        return redirectUsers(res, "User details updated", null);
+    } catch (err) {
+        console.error("Edit user error:", err);
+        return res.render("admin-edit-user", {
+            user: {
+                id: userId,
+                name,
+                email,
+                role,
+                weekly_capacity: req.body.weekly_capacity,
+                selected_working_days: workingDays
+            },
+            error: "Failed to update user.",
+            message: null,
+            active_page: "admin_users"
+        });
+    }
 });
 
 router.post("/change-role/:id", requireLogin, requireRole("admin"), async (req, res) => {

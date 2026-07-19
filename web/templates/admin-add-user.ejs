@@ -52,6 +52,24 @@
                 </select>
             </div>
 
+            <div class="input-group">
+                <label>Weekly Capacity (hours)</label>
+                <input type="number" name="weekly_capacity" min="1" max="80" step="0.5" value="40" required>
+            </div>
+
+            <div class="input-group">
+                <label>Working Days</label>
+                <div class="d-flex flex-wrap gap-2">
+                    <label><input type="checkbox" name="working_days" value="Mon" checked> Mon</label>
+                    <label><input type="checkbox" name="working_days" value="Tue" checked> Tue</label>
+                    <label><input type="checkbox" name="working_days" value="Wed" checked> Wed</label>
+                    <label><input type="checkbox" name="working_days" value="Thu" checked> Thu</label>
+                    <label><input type="checkbox" name="working_days" value="Fri" checked> Fri</label>
+                    <label><input type="checkbox" name="working_days" value="Sat"> Sat</label>
+                    <label><input type="checkbox" name="working_days" value="Sun"> Sun</label>
+                </div>
+            </div>
+
             <button class="login-btn" type="submit">Create User</button>
 
             <div class="theme-toggle" onclick="toggleTheme()">

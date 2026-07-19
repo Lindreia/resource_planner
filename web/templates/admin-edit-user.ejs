@@ -48,8 +48,36 @@
                 <select name="role" class="role-select" required>
                     <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
                     <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+                    <option value="viewer" <%= user.role === 'viewer' ? 'selected' : '' %>>Viewer</option>
+                    <option value="client" <%= user.role === 'client' ? 'selected' : '' %>>External Client</option>
                     <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
                 </select>
+            </div>
+
+            <div class="input-group">
+                <label>Weekly Capacity (hours)</label>
+                <input
+                    type="number"
+                    name="weekly_capacity"
+                    min="1"
+                    max="80"
+                    step="0.5"
+                    value="<%= user.weekly_capacity %>"
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label>Working Days</label>
+                <div class="d-flex flex-wrap gap-2">
+                    <label><input type="checkbox" name="working_days" value="Mon" <%= user.selected_working_days && user.selected_working_days.includes('Mon') ? 'checked' : '' %>> Mon</label>
+                    <label><input type="checkbox" name="working_days" value="Tue" <%= user.selected_working_days && user.selected_working_days.includes('Tue') ? 'checked' : '' %>> Tue</label>
+                    <label><input type="checkbox" name="working_days" value="Wed" <%= user.selected_working_days && user.selected_working_days.includes('Wed') ? 'checked' : '' %>> Wed</label>
+                    <label><input type="checkbox" name="working_days" value="Thu" <%= user.selected_working_days && user.selected_working_days.includes('Thu') ? 'checked' : '' %>> Thu</label>
+                    <label><input type="checkbox" name="working_days" value="Fri" <%= user.selected_working_days && user.selected_working_days.includes('Fri') ? 'checked' : '' %>> Fri</label>
+                    <label><input type="checkbox" name="working_days" value="Sat" <%= user.selected_working_days && user.selected_working_days.includes('Sat') ? 'checked' : '' %>> Sat</label>
+                    <label><input type="checkbox" name="working_days" value="Sun" <%= user.selected_working_days && user.selected_working_days.includes('Sun') ? 'checked' : '' %>> Sun</label>
+                </div>
             </div>
 
             <div class="input-group">

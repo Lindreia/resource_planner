@@ -58,6 +58,16 @@ function getPasswordPolicyMessage() {
     return "Password must be at least 12 characters and include uppercase, lowercase, number, and special character.";
 }
 
+function getPostLoginRedirect(role) {
+    const normalizedRole = String(role || "").trim().toLowerCase();
+
+    if (normalizedRole === "admin") return "/admin/dashboard";
+    if (normalizedRole === "manager") return "/manager/dashboard";
+
+    // Default user landing page for non-admin roles.
+    return "/weekly";
+}
+
 function requirePendingMfa(req, res, next) {
     if (!req.session || !req.session.pendingMfa) {
         debugAuthLog("verify-mfa redirect due to missing pendingMfa", {
@@ -252,11 +262,7 @@ router.post("/login", async (req, res) => {
         await logAuditEvent(user.id, "login_success", { email: normalizedEmail }, req.ip);
         debugAuthLog("login success", { userId: user.id, role: user.role, email: normalizedEmail, sessionID: req.sessionID });
 
-        if (user.role === "admin") {
-            return res.redirect("/admin/dashboard");
-        }
-
-        return res.redirect("/dashboard");
+        return res.redirect(getPostLoginRedirect(user.role));
 
     } catch (err) {
         console.error("Login error:", err);
@@ -332,11 +338,7 @@ router.post("/verify-mfa", requirePendingMfa, async (req, res) => {
 
     await logAuditEvent(req.session.user.id, "login_success", { email: req.session.user.email, mfa: true }, req.ip);
 
-    if (req.session.user.role === "admin") {
-        return res.redirect("/admin/dashboard");
-    }
-
-    return res.redirect("/dashboard");
+    return res.redirect(getPostLoginRedirect(req.session.user.role));
 });
 
 // ---------------------------------------------------------

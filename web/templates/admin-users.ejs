@@ -30,6 +30,8 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Role</th>
+                        <th>Capacity</th>
+                        <th>Working Days</th>
                         <th>Status</th>
                         <th>Locked?</th>
                         <th>Actions</th>
@@ -41,6 +43,8 @@
                             <td><%= user.name %></td>
                             <td><%= user.email %></td>
                             <td><span class="badge text-bg-secondary"><%= user.role %></span></td>
+                            <td><%= user.weekly_capacity %> hrs</td>
+                            <td><%= user.working_days || 'Mon,Tue,Wed,Thu,Fri' %></td>
                             <td>
                                 <% if (user.is_active === false) { %>
                                     <span class="badge text-bg-danger">Deactivated</span>
@@ -77,6 +81,8 @@
                                     <form method="POST" action="/admin/reset-password/<%= user.id %>" class="inline-form">
                                         <button class="btn btn-sm btn-outline-danger" type="submit">Reset Password</button>
                                     </form>
+
+                                    <a href="/admin/edit-user/<%= user.id %>" class="btn btn-sm btn-outline-info">Edit Details</a>
 
                                     <% if (user.is_active === false) { %>
                                         <form method="POST" action="/admin/reactivate-user/<%= user.id %>" class="inline-form">

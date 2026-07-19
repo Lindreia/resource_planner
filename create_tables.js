@@ -10,7 +10,8 @@ async function createTables() {
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 role TEXT NOT NULL CHECK (role IN ('admin','manager','staff','viewer','client')),
-                weekly_capacity INTEGER NOT NULL DEFAULT 40,
+                weekly_capacity NUMERIC(5,2) NOT NULL DEFAULT 40,
+                working_days TEXT NOT NULL DEFAULT 'Mon,Tue,Wed,Thu,Fri',
                 password_hash TEXT NOT NULL,
                 failed_attempts INTEGER NOT NULL DEFAULT 0,
                 locked_until TIMESTAMPTZ,
@@ -29,6 +30,22 @@ async function createTables() {
         await db.query(`
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ;
+        `);
+
+        await db.query(`
+            ALTER TABLE users
+            ALTER COLUMN weekly_capacity TYPE NUMERIC(5,2)
+            USING weekly_capacity::NUMERIC(5,2);
+        `);
+
+        await db.query(`
+            ALTER TABLE users
+            ALTER COLUMN weekly_capacity SET DEFAULT 40;
+        `);
+
+        await db.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS working_days TEXT NOT NULL DEFAULT 'Mon,Tue,Wed,Thu,Fri';
         `);
 
         await db.query(`

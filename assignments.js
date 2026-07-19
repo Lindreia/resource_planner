@@ -3,6 +3,16 @@ const router = express.Router();
 const { getConnection } = require("./database");
 
 const db = getConnection();
+const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function parseWorkingDays(value) {
+    if (!value) return [];
+
+    return String(value)
+        .split(",")
+        .map((v) => v.trim())
+        .filter((d) => WEEKDAY_ORDER.includes(d));
+}
 
 // ---------------------------------------------------------
 // TIME CONFLICT CHECKER (POSTGRES)
@@ -37,18 +47,24 @@ async function hasTimeConflict(teamMemberId, startDate, endDate, startTime, endT
 // ---------------------------------------------------------
 async function exceedsWeeklyCapacity(teamMemberId, startDate, endDate, hoursPerWeek) {
     const query = `
-        SELECT SUM(hours_per_week) AS total
-        FROM assignments
-        WHERE user_id = $1
-          AND NOT ($2 > end_date OR $3 < start_date)
+        SELECT COALESCE(SUM(a.hours_per_week), 0) AS total,
+               u.weekly_capacity AS weekly_capacity
+        FROM users u
+        LEFT JOIN assignments a
+          ON a.user_id = u.id
+         AND NOT ($2 > a.end_date OR $3 < a.start_date)
+        WHERE u.id = $1
+        GROUP BY u.weekly_capacity
     `;
 
     const result = await db.query(query, [teamMemberId, endDate, startDate]);
-    const current = result.rows[0].total || 0;
+    const row = result.rows[0] || { total: 0, weekly_capacity: 40 };
+    const current = Number(row.total) || 0;
+    const weeklyCapacity = Number(row.weekly_capacity) || 40;
 
     const total = current + hoursPerWeek;
 
-    return { exceeded: total > 40, total };
+    return { exceeded: total > weeklyCapacity, total, weeklyCapacity };
 }
 
 // ---------------------------------------------------------
@@ -92,8 +108,26 @@ router.post("/add", async (req, res) => {
             return res.status(400).json({ conflicts });
         }
 
+        const userResult = await db.query(
+            "SELECT name, working_days FROM users WHERE id = $1",
+            [teamMemberId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ error: "Team member not found" });
+        }
+
+        const user = userResult.rows[0];
+        const allowedDays = parseWorkingDays(user.working_days);
+
+        if (allowedDays.length === 0) {
+            return res.status(400).json({
+                error: `${user.name} has no working days configured. Ask an admin to update profile settings.`
+            });
+        }
+
         // WEEKLY CAPACITY
-        const { exceeded } = await exceedsWeeklyCapacity(
+        const { exceeded, weeklyCapacity } = await exceedsWeeklyCapacity(
             teamMemberId,
             startDate,
             endDate,
@@ -101,7 +135,9 @@ router.post("/add", async (req, res) => {
         );
 
         if (exceeded) {
-            return res.status(400).json({ error: "Weekly capacity exceeded" });
+            return res.status(400).json({
+                error: `Weekly capacity exceeded (${weeklyCapacity} hrs)`
+            });
         }
 
         // INSERT ASSIGNMENT
@@ -111,11 +147,12 @@ router.post("/add", async (req, res) => {
                 project_id,
                 start_date,
                 end_date,
+                work_days,
                 start_time,
                 end_time,
                 hours_per_week
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `;
 
         await db.query(insertQuery, [
@@ -123,6 +160,7 @@ router.post("/add", async (req, res) => {
             projectId,
             startDate,
             endDate,
+            allowedDays.length,
             startTime,
             endTime,
             hoursPerWeek
@@ -142,7 +180,7 @@ router.post("/add", async (req, res) => {
 router.get("/add", async (req, res) => {
     try {
         const teamMembersQuery = `
-            SELECT id, name
+            SELECT id, name, weekly_capacity, working_days
             FROM users
             WHERE role = 'staff'
             ORDER BY name
