@@ -10,6 +10,15 @@ const db = getConnection();
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 30;
 
+function getPostLoginRedirect(role) {
+    const normalizedRole = String(role || "").trim().toLowerCase();
+
+    if (normalizedRole === "admin") return "/admin/dashboard";
+    if (normalizedRole === "manager") return "/manager/dashboard";
+
+    return "/weekly";
+}
+
 // ---------------------------------------------------------
 // LOGIN PAGE
 // ---------------------------------------------------------
@@ -74,12 +83,7 @@ router.post("/login", async (req, res) => {
             lastActivity: Date.now()
         };
 
-        // ⭐ ROLE‑BASED REDIRECT
-        if (user.role === "admin") {
-            return res.redirect("/admin/dashboard");
-        }
-
-        return res.redirect("/dashboard");
+        return res.redirect(getPostLoginRedirect(user.role));
 
     } catch (err) {
         console.error("Login error:", err);
