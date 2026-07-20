@@ -22,7 +22,7 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
         const pendingApprovalsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'pending'");
         const projectCountResult = await db.query("SELECT COUNT(*)::int AS count FROM projects");
 
-        res.render("manager-dashboard", {
+        const viewModel = {
             stats: buildManagerStats(
                 teamCountResult.rows[0].count,
                 todayBookingsResult.rows[0].count,
@@ -32,7 +32,14 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
             active_page: "manager_dashboard",
             message: req.query.message || null,
             error: req.query.error || null
-        });
+        };
+
+        const isAdmin = (req.session?.user?.role || "").toLowerCase() === "admin";
+        if (isAdmin) {
+            return res.render("manager-dashboard-admin", viewModel);
+        }
+
+        res.render("manager-dashboard", viewModel);
     } catch (err) {
         console.error("Manager dashboard error:", err);
         res.status(500).send("Failed to load manager dashboard");
