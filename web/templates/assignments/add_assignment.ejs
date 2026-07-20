@@ -95,7 +95,8 @@ document.getElementById("assignmentForm").addEventListener("submit", async funct
 
     const response = await fetch("/assignments/add", {
         method: "POST",
-        body: new FormData(this)
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(new FormData(this))
     });
 
     const data = await response.json();
