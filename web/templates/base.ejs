@@ -17,11 +17,15 @@
 
 <body>
 
+    <% const showSidebar = !((typeof noSidebar !== 'undefined' && noSidebar) || (typeof active_page !== 'undefined' && active_page === 'admin_dashboard')); %>
+
     <!-- SIDEBAR -->
-    <%- include("sidebar") %>
+    <% if (showSidebar) { %>
+        <%- include("sidebar") %>
+    <% } %>
 
     <!-- MAIN CONTENT AREA -->
-    <main class="p-4" id="mainContent" style="margin-left: 220px; transition: margin-left 0.25s ease;">
+    <main class="p-4" id="mainContent" style="margin-left: <%= showSidebar ? '220px' : '0' %>; transition: margin-left 0.25s ease;">
         
         <!-- FLASH MESSAGES -->
         <% if (messages && messages.length > 0) { %>
@@ -50,31 +54,33 @@
     </script>
 
     <!-- SIDEBAR COLLAPSE SCRIPT -->
-    <script>
-    const sidebar = document.getElementById("sidebar");
-    const mainContent = document.getElementById("mainContent");
-    const toggleBtn = document.getElementById("sidebarToggle");
+    <% if (showSidebar) { %>
+        <script>
+        const sidebar = document.getElementById("sidebar");
+        const mainContent = document.getElementById("mainContent");
+        const toggleBtn = document.getElementById("sidebarToggle");
 
-    toggleBtn.addEventListener("click", () => {
-        sidebar.classList.toggle("collapsed");
+        toggleBtn.addEventListener("click", () => {
+            sidebar.classList.toggle("collapsed");
 
-        if (sidebar.classList.contains("collapsed")) {
-            mainContent.style.marginLeft = "70px";
-        } else {
-            mainContent.style.marginLeft = "220px";
-        }
+            if (sidebar.classList.contains("collapsed")) {
+                mainContent.style.marginLeft = "70px";
+            } else {
+                mainContent.style.marginLeft = "220px";
+            }
 
-        localStorage.setItem("sidebar-collapsed", sidebar.classList.contains("collapsed"));
-    });
+            localStorage.setItem("sidebar-collapsed", sidebar.classList.contains("collapsed"));
+        });
 
-    // Restore state
-    window.addEventListener("DOMContentLoaded", () => {
-        if (localStorage.getItem("sidebar-collapsed") === "true") {
-            sidebar.classList.add("collapsed");
-            mainContent.style.marginLeft = "70px";
-        }
-    });
-    </script>
+        // Restore state
+        window.addEventListener("DOMContentLoaded", () => {
+            if (localStorage.getItem("sidebar-collapsed") === "true") {
+                sidebar.classList.add("collapsed");
+                mainContent.style.marginLeft = "70px";
+            }
+        });
+        </script>
+    <% } %>
 
     <!-- GLOBAL CONFLICT MODAL -->
     <div class="modal fade" id="conflictModal" tabindex="-1">

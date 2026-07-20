@@ -69,9 +69,21 @@ async function createTables() {
                 end_date DATE,
                 hours_per_week INTEGER NOT NULL,
                 work_days INTEGER NOT NULL DEFAULT 5,
+                start_time TEXT,
+                end_time TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ADD COLUMN IF NOT EXISTS start_time TEXT;
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ADD COLUMN IF NOT EXISTS end_time TEXT;
         `);
         console.log("Assignments table ensured.");
 

@@ -56,6 +56,7 @@ router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) =>
 
         res.render("admin-dashboard", {
             user: req.session.user,
+            noSidebar: true,
             stats: {
                 totalUsers: userStats.rows[0].total_users,
                 lockedUsers: userStats.rows[0].locked_users,
