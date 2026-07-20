@@ -7,8 +7,10 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -24,6 +26,7 @@
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <main class="content">
         <h2>Add Project</h2>
@@ -33,7 +36,7 @@
             <div class="error-box"><%= error %></div>
         <% } %>
 
-        <form method="POST" action="/manager/projects/add" class="login-container" style="max-width: 620px; margin: 0; padding: 24px;">
+        <form method="POST" action="/manager/projects/add<%= adminSuffix %>" class="login-container" style="max-width: 620px; margin: 0; padding: 24px;">
             <div class="input-group">
                 <label for="project_code">Project Code</label>
                 <input
@@ -81,7 +84,7 @@
 
             <div style="display: flex; gap: 10px; margin-top: 16px;">
                 <button class="login-btn" type="submit" style="width: auto; min-width: 180px;">Create Project</button>
-                <a class="login-btn small-btn" href="/manager/projects" style="display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 180px; text-decoration: none;">Cancel</a>
+                <a class="login-btn small-btn" href="/manager/projects<%= adminSuffix %>" style="display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 180px; text-decoration: none;">Cancel</a>
             </div>
         </form>
 
@@ -93,13 +96,15 @@
 <script>
 function toggleSidebar() {
     const sidebar = document.getElementById("sidebar");
+    if (!sidebar) return;
     sidebar.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", sidebar.classList.contains("collapsed"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 

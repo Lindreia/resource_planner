@@ -7,10 +7,12 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
 
     <!-- Sidebar -->
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -24,8 +26,10 @@
             <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
             <a href="/manager/team" class="nav-link">👥 <span class="nav-text">Team</span></a>
             <a href="/manager/bookings" class="nav-link active">🗂 <span class="nav-text">Bookings</span></a>
+            <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <!-- Main Content -->
     <main class="content">
@@ -43,6 +47,9 @@
 
         <!-- Filters -->
         <form method="GET" action="/manager/bookings" class="filter-form">
+            <% if (isAdminView) { %>
+                <input type="hidden" name="admin_view" value="1">
+            <% } %>
 
             <div class="input-group">
                 <label>Date</label>
@@ -65,6 +72,11 @@
 
             <button class="login-btn small-btn" type="submit">Apply Filters</button>
         </form>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="login-btn small-btn" href="/manager/bookings/export.csv?date=<%= encodeURIComponent(filters.date || '') %>&user_id=<%= encodeURIComponent(filters.user_id || '') %><%= isAdminView ? '&admin_view=1' : '' %>">Export CSV</a>
+            <a class="login-btn small-btn" href="/manager/bookings/export.pdf?date=<%= encodeURIComponent(filters.date || '') %>&user_id=<%= encodeURIComponent(filters.user_id || '') %><%= isAdminView ? '&admin_view=1' : '' %>">Export PDF</a>
+        </div>
 
         <!-- Booking Table -->
         <% if (bookings.length === 0) { %>
@@ -90,7 +102,7 @@
                         <td><%= b.status %></td>
 
                         <td class="actions">
-                            <a class="login-btn small-btn" href="/manager/bookings/<%= b.id %>">View</a>
+                            <a class="login-btn small-btn" href="/manager/bookings/<%= b.id %><%= adminSuffix %>">View</a>
                         </td>
                     </tr>
                 <% }) %>
@@ -101,24 +113,27 @@
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
 
         <div class="footer-links">
-            <a href="/manager/dashboard">Back to Manager Dashboard</a>
+            <a href="/manager/dashboard<%= adminSuffix %>">Back to Manager Dashboard</a>
         </div>
 
     </main>
 
 </div>
 
+<script src="/static/logout-modal.js"></script>
 <script>
 /* Sidebar collapse */
 function toggleSidebar() {
     const s = document.getElementById("sidebar");
+    if (!s) return;
     s.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 
