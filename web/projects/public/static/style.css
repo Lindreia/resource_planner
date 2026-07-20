@@ -282,3 +282,145 @@ body {
 .util-red { background: #dc2626; }
 .util-orange { background: #f59e0b; }
 .util-green { background: #0b8a4a; }
+
+/* ----------------------------------------------------
+   MANAGER PAGES
+---------------------------------------------------- */
+.layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.content {
+    flex: 1;
+    margin-left: 220px;
+    padding: 28px 26px;
+    box-sizing: border-box;
+}
+
+.sidebar.collapsed + .content {
+    margin-left: 70px;
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    margin: 0 0 20px;
+    color: rgba(26, 26, 26, 0.8);
+    font-size: 1.1rem;
+}
+
+.user-table {
+    width: 100%;
+    max-width: 1080px;
+    border-collapse: collapse;
+    background: var(--r8-surface);
+    border: 1px solid var(--r8-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.user-table th,
+.user-table td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--r8-border);
+}
+
+.user-table th {
+    font-size: 0.95rem;
+    font-weight: 700;
+    background: rgba(11, 138, 74, 0.08);
+}
+
+.user-table tr:last-child td {
+    border-bottom: none;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    align-items: end;
+    margin: 10px 0 16px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.input-group input,
+.input-group select,
+.input-group textarea {
+    min-width: 180px;
+    padding: 10px 12px;
+    border: 1px solid var(--r8-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--r8-text);
+}
+
+.login-btn,
+button.login-btn {
+    display: inline-block;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--r8-green-deep);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.small-btn {
+    padding: 7px 10px;
+    font-size: 0.92rem;
+}
+
+.warn-btn {
+    background: #dc2626;
+}
+
+.inline-form {
+    display: inline;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+.success-box,
+.error-box,
+.info-text {
+    max-width: 860px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+}
+
+.success-box {
+    background: rgba(11, 138, 74, 0.12);
+    border: 1px solid rgba(11, 138, 74, 0.3);
+}
+
+.error-box {
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.28);
+}
+
+.info-text {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid var(--r8-border);
+}
+
+.theme-toggle,
+.footer-links {
+    margin-top: 16px;
+}
