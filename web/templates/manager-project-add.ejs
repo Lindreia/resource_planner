@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Project | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body data-theme="light">
+
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-logo">R8</span>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/manager/dashboard" class="nav-link">📊 <span class="nav-text">Dashboard</span></a>
+            <a href="/manager/projects" class="nav-link active">📁 <span class="nav-text">Projects</span></a>
+            <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
+            <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
+            <a href="/manager/team" class="nav-link">👥 <span class="nav-text">Team</span></a>
+            <a href="/logout" class="nav-link logout-link">Logout</a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <h2>Add Project</h2>
+        <p class="subtitle">Create a new project for planning and bookings</p>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <form method="POST" action="/manager/projects/add" class="login-container" style="max-width: 620px; margin: 0; padding: 24px;">
+            <div class="input-group">
+                <label for="project_code">Project Code</label>
+                <input
+                    id="project_code"
+                    name="project_code"
+                    type="text"
+                    value="<%= form.project_code %>"
+                    maxlength="30"
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="project_name">Project Name</label>
+                <input
+                    id="project_name"
+                    name="project_name"
+                    type="text"
+                    value="<%= form.project_name %>"
+                    maxlength="120"
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="client">Client</label>
+                <input
+                    id="client"
+                    name="client"
+                    type="text"
+                    value="<%= form.client %>"
+                    maxlength="120"
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="color">Color</label>
+                <input
+                    id="color"
+                    name="color"
+                    type="color"
+                    value="<%= form.color %>"
+                >
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 16px;">
+                <button class="login-btn" type="submit" style="width: auto; min-width: 180px;">Create Project</button>
+                <a class="login-btn small-btn" href="/manager/projects" style="display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 180px; text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+
+        <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
+    </main>
+</div>
+
+<script src="/static/logout-modal.js"></script>
+<script>
+function toggleSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    sidebar.classList.toggle("collapsed");
+    localStorage.setItem("sidebar-collapsed", sidebar.classList.contains("collapsed"));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem("sidebar-collapsed") === "true") {
+        document.getElementById("sidebar").classList.add("collapsed");
+    }
+});
+
+function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme) {
+    document.documentElement.setAttribute("data-theme", savedTheme);
+}
+</script>
+
+</body>
+</html>

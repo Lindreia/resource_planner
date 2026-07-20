@@ -112,10 +112,71 @@ router.get("/projects", requireLogin, requireRole("admin", "manager"), async (re
              ORDER BY p.project_code`
         )).rows;
 
-        res.render("manager-projects", { projects, error: null, message: null });
+        res.render("manager-projects", {
+            projects,
+            error: req.query.error || null,
+            message: req.query.message || null
+        });
     } catch (err) {
         console.error("Manager projects error:", err);
         res.status(500).send("Failed to load project list");
+    }
+});
+
+router.get("/projects/add", requireLogin, requireRole("admin", "manager"), (req, res) => {
+    res.render("manager-project-add", {
+        form: {
+            project_code: "",
+            project_name: "",
+            client: "",
+            color: "#0b8a4a"
+        },
+        error: null
+    });
+});
+
+router.post("/projects/add", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+    const project_code = String(req.body.project_code || "").trim().toUpperCase();
+    const project_name = String(req.body.project_name || "").trim();
+    const client = String(req.body.client || "").trim();
+    const color = String(req.body.color || "").trim() || "#0b8a4a";
+
+    const form = {
+        project_code,
+        project_name,
+        client,
+        color
+    };
+
+    if (!project_code || !project_name) {
+        return res.render("manager-project-add", {
+            form,
+            error: "Project code and project name are required."
+        });
+    }
+
+    try {
+        await db.query(
+            `INSERT INTO projects (project_code, project_name, client, color)
+             VALUES ($1, $2, $3, $4)`,
+            [project_code, project_name, client || null, color]
+        );
+
+        const params = new URLSearchParams({ message: "Project created successfully." });
+        return res.redirect(`/manager/projects?${params.toString()}`);
+    } catch (err) {
+        if (err && err.code === "23505") {
+            return res.render("manager-project-add", {
+                form,
+                error: "Project code already exists. Use a unique code."
+            });
+        }
+
+        console.error("Manager add project error:", err);
+        return res.render("manager-project-add", {
+            form,
+            error: "Failed to create project. Please try again."
+        });
     }
 });
 

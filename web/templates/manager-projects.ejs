@@ -94,6 +94,10 @@
             <div class="success-box"><%= message %></div>
         <% } %>
 
+        <div class="actions" style="margin: 14px 0 18px;">
+            <a class="login-btn small-btn" href="/manager/projects/add">+ Add Project</a>
+        </div>
+
         <% if (projects.length === 0) { %>
             <div class="info-text">No projects found.</div>
         <% } else { %>
