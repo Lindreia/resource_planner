@@ -89,6 +89,7 @@ async function startServer() {
     app.set("views", path.join(__dirname, "web/templates"));
     app.set("view engine", "ejs");
 
+    app.use("/static", express.static(path.join(__dirname, "web/projects/public/static")));
     app.use("/static", express.static(path.join(__dirname, "web/public/static")));
 
     // ───────────────────────────────────────────────────────────
