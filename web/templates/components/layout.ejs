@@ -14,11 +14,31 @@
             <ul class="navbar-nav ms-auto">
 
                 <!-- RESOURCE INPUT (Admin + Manager only) -->
-                <% if (["Admin", "Manager"].includes(user.role)) { %>
+                <% if (user && ["admin", "manager"].includes((user.role || "").toLowerCase())) { %>
                 <li class="nav-item">
                     <a class="nav-link <%= active_page === 'resources' ? 'active fw-bold' : '' %>"
                        href="/assignments/add">
                         Resource Input
+                    </a>
+                </li>
+                <% } %>
+
+                <!-- MANAGER ONLY -->
+                <% if (user && (user.role || "").toLowerCase() === "manager") { %>
+                <li class="nav-item">
+                    <a class="nav-link <%= active_page === 'manager_dashboard' ? 'active fw-bold' : '' %>"
+                       href="/manager/dashboard">
+                        Manager Dashboard
+                    </a>
+                </li>
+                <% } %>
+
+                <!-- ADMIN DASHBOARDS -->
+                <% if (user && (user.role || "").toLowerCase() === "admin") { %>
+                <li class="nav-item">
+                    <a class="nav-link <%= active_page === 'admin_dashboard' ? 'active fw-bold' : '' %>"
+                       href="/admin/dashboard">
+                        Admin Dashboard
                     </a>
                 </li>
                 <li class="nav-item">
@@ -54,7 +74,7 @@
                 </li>
 
                 <!-- ADMIN ONLY -->
-                <% if (user.role === "Admin") { %>
+                <% if (user && (user.role || "").toLowerCase() === "admin") { %>
                 <li class="nav-item">
                     <a class="nav-link <%= active_page === 'admin_users' ? 'active fw-bold' : '' %>"
                        href="/admin/users">
@@ -70,6 +90,7 @@
                 <% } %>
 
                 <!-- USER DROPDOWN -->
+                <% if (user) { %>
                 <li class="nav-item dropdown ms-3">
                     <a class="nav-link dropdown-toggle fw-bold" href="#" id="userMenu"
                        role="button" data-bs-toggle="dropdown">
@@ -79,6 +100,7 @@
                         <li><a class="dropdown-item" href="/logout">Logout</a></li>
                     </ul>
                 </li>
+                <% } %>
 
             </ul>
         </div>

@@ -9,9 +9,23 @@
             <div class="d-flex gap-2 flex-wrap">
                 <a href="/admin/users/add" class="btn btn-primary btn-sm">Create User</a>
                 <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
-                <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+                <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
             </div>
         </div>
+
+        <% if (user && (user.role || '').toLowerCase() === 'admin') { %>
+            <div class="dashboard-card mb-4">
+                <div class="dashboard-card-title">Dashboard Views</div>
+                <p class="mb-3">Open each dashboard independently from user management.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/admin/dashboard" class="btn btn-success btn-sm">Admin Dashboard</a>
+                    <a href="/manager/dashboard" class="btn btn-outline-success btn-sm">Manager Dashboard</a>
+                    <a href="/weekly" class="btn btn-outline-secondary btn-sm">Weekly Dashboard</a>
+                    <a href="/monthly" class="btn btn-outline-secondary btn-sm">Monthly Dashboard</a>
+                    <a href="/daily" class="btn btn-outline-secondary btn-sm">Daily Dashboard</a>
+                </div>
+            </div>
+        <% } %>
 
         <% if (message) { %>
             <div class="alert alert-success"><%= message %></div>
