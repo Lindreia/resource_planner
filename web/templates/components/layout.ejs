@@ -30,6 +30,24 @@
                             Resource Input
                         </a>
                     </li>
+                    <% } %>
+
+                    <% if (user && (user.role || "").toLowerCase() === "manager") { %>
+                    <li class="nav-item">
+                        <a class="nav-link <%= active_page === 'manager_dashboard' ? 'active fw-bold' : '' %>"
+                           href="/manager/dashboard">
+                            Manager Dashboard
+                        </a>
+                    </li>
+                    <% } %>
+
+                    <% if (user && (user.role || "").toLowerCase() === "admin") { %>
+                    <li class="nav-item">
+                        <a class="nav-link <%= active_page === 'admin_dashboard' ? 'active fw-bold' : '' %>"
+                           href="/admin/dashboard">
+                            Admin Dashboard
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link <%= active_page === 'manager_dashboard' ? 'active fw-bold' : '' %>"
                            href="/manager/dashboard">
