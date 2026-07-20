@@ -1,4 +1,5 @@
 <div class="container dashboard-container">
+    <% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h1 class="r8-page-title mb-1">Manager Dashboard (Admin View)</h1>
@@ -6,9 +7,9 @@
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">Admin Dashboard</a>
-            <a href="/manager/projects" class="btn btn-outline-success btn-sm">Projects</a>
-            <a href="/manager/bookings" class="btn btn-outline-success btn-sm">Bookings</a>
-            <a href="/manager/approvals" class="btn btn-outline-success btn-sm">Approvals</a>
+            <a href="/manager/projects<%= adminSuffix %>" class="btn btn-outline-success btn-sm">Projects</a>
+            <a href="/manager/bookings<%= adminSuffix %>" class="btn btn-outline-success btn-sm">Bookings</a>
+            <a href="/manager/approvals<%= adminSuffix %>" class="btn btn-outline-success btn-sm">Approvals</a>
         </div>
     </div>
 
@@ -57,10 +58,10 @@
     <div class="dashboard-card mt-4">
         <div class="dashboard-card-title">Manager Tools</div>
         <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-success btn-sm" href="/manager/team">View Team</a>
-            <a class="btn btn-success btn-sm" href="/manager/bookings">Manage Bookings</a>
-            <a class="btn btn-success btn-sm" href="/manager/approvals">Approve Requests</a>
-            <a class="btn btn-success btn-sm" href="/manager/projects">Project Overview</a>
+            <a class="btn btn-success btn-sm" href="/manager/team<%= adminSuffix %>">View Team</a>
+            <a class="btn btn-success btn-sm" href="/manager/bookings<%= adminSuffix %>">Manage Bookings</a>
+            <a class="btn btn-success btn-sm" href="/manager/approvals<%= adminSuffix %>">Approve Requests</a>
+            <a class="btn btn-success btn-sm" href="/manager/projects<%= adminSuffix %>">Project Overview</a>
             <a class="btn btn-outline-success btn-sm" href="/admin/overrides">Override Requests</a>
         </div>
     </div>

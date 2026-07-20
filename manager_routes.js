@@ -14,6 +14,36 @@ function renderManager(res, view, data) {
     });
 }
 
+function isAdminUser(req) {
+    return (req.session?.user?.role || "").toLowerCase() === "admin";
+}
+
+function isAdminView(req) {
+    return isAdminUser(req) && String(req.query.admin_view || "") === "1";
+}
+
+function adminViewMeta(req) {
+    const adminMode = isAdminView(req);
+    return {
+        isAdminView: adminMode,
+        adminViewQuery: adminMode ? "admin_view=1" : ""
+    };
+}
+
+function withAdminView(req, path) {
+    if (!isAdminView(req)) {
+        return path;
+    }
+    return path.includes("?") ? `${path}&admin_view=1` : `${path}?admin_view=1`;
+}
+
+function renderManagerPage(req, res, view, data) {
+    return renderManager(res, view, {
+        ...(data || {}),
+        ...adminViewMeta(req)
+    });
+}
+
 function buildManagerStats(teamCount, todayBookings, pendingApprovals, projectCount) {
     return {
         teamCount,
@@ -56,12 +86,15 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
             error: req.query.error || null
         };
 
-        const isAdmin = (req.session?.user?.role || "").toLowerCase() === "admin";
-        if (isAdmin) {
-            return res.render("manager-dashboard-admin", viewModel);
+        if (isAdminUser(req)) {
+            return res.render("manager-dashboard-admin", {
+                ...viewModel,
+                isAdminView: true,
+                adminViewQuery: "admin_view=1"
+            });
         }
 
-        renderManager(res, "manager-dashboard", viewModel);
+        renderManagerPage(req, res, "manager-dashboard", viewModel);
     } catch (err) {
         console.error("Manager dashboard error:", err);
         res.status(500).send("Failed to load manager dashboard");
@@ -74,7 +107,7 @@ router.get("/team", requireLogin, requireRole("admin", "manager"), async (req, r
             "SELECT id, name, email, role FROM users WHERE role IN ('staff','manager','admin') ORDER BY name ASC"
         )).rows;
 
-        renderManager(res, "manager-team", { team });
+        renderManagerPage(req, res, "manager-team", { team });
     } catch (err) {
         console.error("Manager team error:", err);
         res.status(500).send("Failed to load team page");
@@ -116,7 +149,7 @@ router.get("/team/:id", requireLogin, requireRole("admin", "manager"), async (re
             [member.id]
         )).rows;
 
-        renderManager(res, "manager-team-detail", {
+        renderManagerPage(req, res, "manager-team-detail", {
             member,
             availability,
             bookings,
@@ -141,7 +174,7 @@ router.get("/projects", requireLogin, requireRole("admin", "manager"), async (re
              ORDER BY p.project_code`
         )).rows;
 
-        renderManager(res, "manager-projects", {
+        renderManagerPage(req, res, "manager-projects", {
             projects,
             error: req.query.error || null,
             message: req.query.message || null
@@ -153,7 +186,7 @@ router.get("/projects", requireLogin, requireRole("admin", "manager"), async (re
 });
 
 router.get("/projects/add", requireLogin, requireRole("admin", "manager"), (req, res) => {
-    renderManager(res, "manager-project-add", {
+    renderManagerPage(req, res, "manager-project-add", {
         form: {
             project_code: "",
             project_name: "",
@@ -178,7 +211,7 @@ router.post("/projects/add", requireLogin, requireRole("admin", "manager"), asyn
     };
 
     if (!project_code || !project_name) {
-        return renderManager(res, "manager-project-add", {
+        return renderManagerPage(req, res, "manager-project-add", {
             form,
             error: "Project code and project name are required."
         });
@@ -192,17 +225,17 @@ router.post("/projects/add", requireLogin, requireRole("admin", "manager"), asyn
         );
 
         const params = new URLSearchParams({ message: "Project created successfully." });
-        return res.redirect(`/manager/projects?${params.toString()}`);
+        return res.redirect(withAdminView(req, `/manager/projects?${params.toString()}`));
     } catch (err) {
         if (err && err.code === "23505") {
-            return renderManager(res, "manager-project-add", {
+            return renderManagerPage(req, res, "manager-project-add", {
                 form,
                 error: "Project code already exists. Use a unique code."
             });
         }
 
         console.error("Manager add project error:", err);
-        return renderManager(res, "manager-project-add", {
+        return renderManagerPage(req, res, "manager-project-add", {
             form,
             error: "Failed to create project. Please try again."
         });
@@ -246,7 +279,7 @@ router.get("/projects/:id", requireLogin, requireRole("admin", "manager"), async
             [projectRow.id]
         )).rows;
 
-        renderManager(res, "manager-project-detail", {
+        renderManagerPage(req, res, "manager-project-detail", {
             project: {
                 name: projectRow.project_name,
                 status: team.length > 0 ? "Active" : "No assignments",
@@ -300,7 +333,7 @@ router.get("/bookings", requireLogin, requireRole("admin", "manager"), async (re
         const bookings = (await db.query(query, params)).rows;
         const team = (await db.query("SELECT id, name FROM users WHERE role = 'staff' ORDER BY name ASC")).rows;
 
-        renderManager(res, "manager-bookings", {
+        renderManagerPage(req, res, "manager-bookings", {
             bookings,
             team,
             filters,
@@ -424,7 +457,7 @@ router.get("/bookings/:id", requireLogin, requireRole("admin", "manager"), async
             return res.status(404).send("Booking not found");
         }
 
-        renderManager(res, "manager-booking-detail", {
+        renderManagerPage(req, res, "manager-booking-detail", {
             booking: bookingResult.rows[0],
             message: req.query.message || null,
             error: req.query.error || null
@@ -438,40 +471,40 @@ router.get("/bookings/:id", requireLogin, requireRole("admin", "manager"), async
 router.post("/bookings/:id/update-hours", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         await db.query("UPDATE bookings SET hours = $1 WHERE id = $2", [req.body.hours, req.params.id]);
-        res.redirect(`/manager/bookings/${req.params.id}?message=Hours updated`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?message=Hours updated`));
     } catch (err) {
         console.error("Update booking hours error:", err);
-        res.redirect(`/manager/bookings/${req.params.id}?error=Failed to update hours`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?error=Failed to update hours`));
     }
 });
 
 router.post("/bookings/:id/notes", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         await db.query("UPDATE bookings SET notes = $1 WHERE id = $2", [req.body.notes || "", req.params.id]);
-        res.redirect(`/manager/bookings/${req.params.id}?message=Notes saved`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?message=Notes saved`));
     } catch (err) {
         console.error("Update booking notes error:", err);
-        res.redirect(`/manager/bookings/${req.params.id}?error=Failed to save notes`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?error=Failed to save notes`));
     }
 });
 
 router.post("/bookings/:id/approve", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         await db.query("UPDATE bookings SET status = 'approved' WHERE id = $1", [req.params.id]);
-        res.redirect(`/manager/bookings/${req.params.id}?message=Booking approved`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?message=Booking approved`));
     } catch (err) {
         console.error("Approve booking error:", err);
-        res.redirect(`/manager/bookings/${req.params.id}?error=Failed to approve booking`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?error=Failed to approve booking`));
     }
 });
 
 router.post("/bookings/:id/reject", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         await db.query("UPDATE bookings SET status = 'rejected' WHERE id = $1", [req.params.id]);
-        res.redirect(`/manager/bookings/${req.params.id}?message=Booking rejected`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?message=Booking rejected`));
     } catch (err) {
         console.error("Reject booking error:", err);
-        res.redirect(`/manager/bookings/${req.params.id}?error=Failed to reject booking`);
+        res.redirect(withAdminView(req, `/manager/bookings/${req.params.id}?error=Failed to reject booking`));
     }
 });
 
@@ -485,7 +518,7 @@ router.get("/availability", requireLogin, requireRole("admin", "manager"), async
              ORDER BY u.name ASC, a.start_date DESC`
         )).rows;
 
-        renderManager(res, "manager-availability", { availability });
+        renderManagerPage(req, res, "manager-availability", { availability });
     } catch (err) {
         console.error("Manager availability error:", err);
         res.status(500).send("Failed to load availability page");
@@ -505,7 +538,7 @@ router.get("/approvals", requireLogin, requireRole("admin", "manager"), async (r
              ORDER BY b.date DESC, u.name ASC`
         )).rows;
 
-        renderManager(res, "manager-approvals", {
+        renderManagerPage(req, res, "manager-approvals", {
             requests,
             error: null,
             message: null
@@ -552,7 +585,7 @@ router.get("/allocation", requireLogin, requireRole("admin", "manager"), async (
             projects: projectsMap.get(row.id) || []
         }));
 
-        renderManager(res, "manager-allocation", {
+        renderManagerPage(req, res, "manager-allocation", {
             allocations,
             filters: { week: req.query.week || "" },
             error: null,

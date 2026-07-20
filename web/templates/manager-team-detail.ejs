@@ -7,10 +7,12 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
 
     <!-- Sidebar -->
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -26,6 +28,7 @@
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <!-- Main Content -->
     <main class="content">
@@ -101,7 +104,7 @@
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
 
         <div class="footer-links">
-            <a href="/manager/team">Back to Team Overview</a>
+            <a href="/manager/team<%= adminSuffix %>">Back to Team Overview</a>
         </div>
 
     </main>
@@ -113,12 +116,14 @@
 /* Sidebar collapse */
 function toggleSidebar() {
     const s = document.getElementById("sidebar");
+    if (!s) return;
     s.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
 }
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 

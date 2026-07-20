@@ -7,8 +7,10 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -24,6 +26,7 @@
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <main class="content">
         <h2>Projects</h2>
@@ -38,7 +41,7 @@
         <% } %>
 
         <div class="actions" style="margin: 14px 0 18px;">
-            <a class="login-btn small-btn" href="/manager/projects/add">+ Add Project</a>
+            <a class="login-btn small-btn" href="/manager/projects/add<%= adminSuffix %>">+ Add Project</a>
         </div>
 
         <% if (projects.length === 0) { %>
@@ -60,7 +63,7 @@
                         <td><%= project.total_hours %> hrs</td>
                         <td><%= project.members %></td>
                         <td>
-                            <a class="login-btn small-btn" href="/manager/projects/<%= project.id %>">View</a>
+                            <a class="login-btn small-btn" href="/manager/projects/<%= project.id %><%= adminSuffix %>">View</a>
                         </td>
                     </tr>
                 <% }) %>
@@ -70,7 +73,7 @@
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
 
         <div class="footer-links">
-            <a href="/manager/dashboard">Back to Manager Dashboard</a>
+            <a href="/manager/dashboard<%= adminSuffix %>">Back to Manager Dashboard</a>
         </div>
     </main>
 </div>
@@ -79,13 +82,15 @@
 <script>
 function toggleSidebar() {
     const sidebar = document.getElementById("sidebar");
+    if (!sidebar) return;
     sidebar.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", sidebar.classList.contains("collapsed"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 

@@ -7,10 +7,12 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
 
     <!-- Sidebar -->
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -26,6 +28,7 @@
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <!-- Main Content -->
     <main class="content">
@@ -45,7 +48,7 @@
 
                 <% team.forEach(t => { %>
                     <tr>
-                        <td><a href="/manager/team/<%= t.id %>"><%= t.name %></a></td>
+                        <td><a href="/manager/team/<%= t.id %><%= adminSuffix %>"><%= t.name %></a></td>
                         <td><%= t.email %></td>
                         <td><%= t.role %></td>
                     </tr>
@@ -61,13 +64,15 @@
 <script>
 function toggleSidebar() {
     const s = document.getElementById("sidebar");
+    if (!s) return;
     s.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 </script>

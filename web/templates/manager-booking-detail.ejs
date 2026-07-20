@@ -7,10 +7,12 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
 
     <!-- Sidebar -->
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -27,6 +29,7 @@
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <!-- Main Content -->
     <main class="content">
@@ -53,7 +56,7 @@
         <!-- Edit Hours -->
         <h3 class="section-title">Edit Hours</h3>
 
-        <form method="POST" action="/manager/bookings/<%= booking.id %>/update-hours">
+        <form method="POST" action="/manager/bookings/<%= booking.id %>/update-hours<%= adminSuffix %>">
             <div class="input-group">
                 <label>Hours</label>
                 <input 
@@ -72,7 +75,7 @@
         <!-- Notes -->
         <h3 class="section-title">Notes</h3>
 
-        <form method="POST" action="/manager/bookings/<%= booking.id %>/notes">
+        <form method="POST" action="/manager/bookings/<%= booking.id %>/notes<%= adminSuffix %>">
             <div class="input-group">
                 <textarea 
                     name="notes" 
@@ -89,11 +92,11 @@
 
         <div class="action-buttons">
 
-            <form method="POST" action="/manager/bookings/<%= booking.id %>/approve" class="inline-form">
+            <form method="POST" action="/manager/bookings/<%= booking.id %>/approve<%= adminSuffix %>" class="inline-form">
                 <button class="login-btn small-btn" type="submit">Approve</button>
             </form>
 
-            <form method="POST" action="/manager/bookings/<%= booking.id %>/reject" class="inline-form">
+            <form method="POST" action="/manager/bookings/<%= booking.id %>/reject<%= adminSuffix %>" class="inline-form">
                 <button class="login-btn small-btn warn-btn" type="submit">Reject</button>
             </form>
 
@@ -102,7 +105,7 @@
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
 
         <div class="footer-links">
-            <a href="/manager/bookings">Back to Bookings</a>
+            <a href="/manager/bookings<%= adminSuffix %>">Back to Bookings</a>
         </div>
 
     </main>
@@ -114,13 +117,15 @@
 /* Sidebar collapse */
 function toggleSidebar() {
     const s = document.getElementById("sidebar");
+    if (!s) return;
     s.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 

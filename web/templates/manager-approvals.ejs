@@ -7,10 +7,12 @@
 </head>
 
 <body data-theme="light">
+<% const adminSuffix = isAdminView ? "?admin_view=1" : ""; %>
 
 <div class="layout">
 
     <!-- Sidebar -->
+    <% if (!isAdminView) { %>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="sidebar-logo">R8</span>
@@ -27,6 +29,7 @@
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
+    <% } %>
 
     <!-- Main Content -->
     <main class="content">
@@ -64,15 +67,15 @@
 
                         <td class="actions">
 
-                            <a class="login-btn small-btn" href="/manager/bookings/<%= r.id %>">
+                            <a class="login-btn small-btn" href="/manager/bookings/<%= r.id %><%= adminSuffix %>">
                                 View
                             </a>
 
-                            <form method="POST" action="/manager/bookings/<%= r.id %>/approve" class="inline-form">
+                            <form method="POST" action="/manager/bookings/<%= r.id %>/approve<%= adminSuffix %>" class="inline-form">
                                 <button class="login-btn small-btn" type="submit">Approve</button>
                             </form>
 
-                            <form method="POST" action="/manager/bookings/<%= r.id %>/reject" class="inline-form">
+                            <form method="POST" action="/manager/bookings/<%= r.id %>/reject<%= adminSuffix %>" class="inline-form">
                                 <button class="login-btn small-btn warn-btn" type="submit">Reject</button>
                             </form>
 
@@ -86,7 +89,7 @@
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
 
         <div class="footer-links">
-            <a href="/manager/dashboard">Back to Manager Dashboard</a>
+            <a href="/manager/dashboard<%= adminSuffix %>">Back to Manager Dashboard</a>
         </div>
 
     </main>
@@ -98,13 +101,15 @@
 /* Sidebar collapse */
 function toggleSidebar() {
     const s = document.getElementById("sidebar");
+    if (!s) return;
     s.classList.toggle("collapsed");
     localStorage.setItem("sidebar-collapsed", s.classList.contains("collapsed"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-        document.getElementById("sidebar").classList.add("collapsed");
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && localStorage.getItem("sidebar-collapsed") === "true") {
+        sidebar.classList.add("collapsed");
     }
 });
 
