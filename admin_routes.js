@@ -173,6 +173,7 @@ router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) =>
         // RENDER ADMIN DASHBOARD
         // ============================
         res.render("admin-dashboard", {
+            noSidebar: true,
             stats,
             alerts,
             recentUsers: recentUsers.rows,

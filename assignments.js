@@ -72,6 +72,9 @@ async function exceedsWeeklyCapacity(teamMemberId, startDate, endDate, hoursPerW
 // ---------------------------------------------------------
 router.post("/add", async (req, res) => {
     try {
+        const currentRole = String(req.session?.user?.role || "").toLowerCase();
+        const isAdmin = currentRole === "admin";
+
         const teamMemberId = parseInt(req.body.team_member);
         const projectId = parseInt(req.body.project);
 
@@ -127,17 +130,19 @@ router.post("/add", async (req, res) => {
         }
 
         // WEEKLY CAPACITY
-        const { exceeded, weeklyCapacity } = await exceedsWeeklyCapacity(
-            teamMemberId,
-            startDate,
-            endDate,
-            hoursPerWeek
-        );
+        if (!isAdmin) {
+            const { exceeded, weeklyCapacity } = await exceedsWeeklyCapacity(
+                teamMemberId,
+                startDate,
+                endDate,
+                hoursPerWeek
+            );
 
-        if (exceeded) {
-            return res.status(400).json({
-                error: `Weekly capacity exceeded (${weeklyCapacity} hrs)`
-            });
+            if (exceeded) {
+                return res.status(400).json({
+                    error: `Weekly capacity exceeded (${weeklyCapacity} hrs)`
+                });
+            }
         }
 
         // INSERT ASSIGNMENT
