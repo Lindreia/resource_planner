@@ -82,6 +82,30 @@
                 >
             </div>
 
+            <div class="input-group">
+                <label for="project_manager_id">Project Manager</label>
+                <select id="project_manager_id" name="project_manager_id">
+                    <option value="">Unassigned</option>
+                    <% managers.forEach((manager) => { %>
+                        <option value="<%= manager.id %>" <%= String(form.project_manager_id) === String(manager.id) ? "selected" : "" %>>
+                            <%= manager.name %> (<%= manager.role %>)
+                        </option>
+                    <% }) %>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="team_manager_id">Team Manager</label>
+                <select id="team_manager_id" name="team_manager_id">
+                    <option value="">Unassigned</option>
+                    <% managers.forEach((manager) => { %>
+                        <option value="<%= manager.id %>" <%= String(form.team_manager_id) === String(manager.id) ? "selected" : "" %>>
+                            <%= manager.name %> (<%= manager.role %>)
+                        </option>
+                    <% }) %>
+                </select>
+            </div>
+
             <div style="display: flex; gap: 10px; margin-top: 16px;">
                 <button class="login-btn" type="submit" style="width: auto; min-width: 180px;">Create Project</button>
                 <a class="login-btn small-btn" href="/manager/projects<%= adminSuffix %>" style="display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 180px; text-decoration: none;">Cancel</a>

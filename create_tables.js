@@ -63,9 +63,21 @@ async function createTables() {
                 project_name TEXT NOT NULL,
                 client TEXT,
                 color TEXT,
+                project_manager_id INTEGER REFERENCES users(id),
+                team_manager_id INTEGER REFERENCES users(id),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+        `);
+
+        await db.query(`
+            ALTER TABLE projects
+            ADD COLUMN IF NOT EXISTS project_manager_id INTEGER REFERENCES users(id);
+        `);
+
+        await db.query(`
+            ALTER TABLE projects
+            ADD COLUMN IF NOT EXISTS team_manager_id INTEGER REFERENCES users(id);
         `);
         console.log("Projects table ensured.");
 
