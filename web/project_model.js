@@ -8,15 +8,17 @@ class Project {
         this.project_name = row.project_name;
         this.client = row.client;
         this.color = row.color;
+        this.project_manager_id = row.project_manager_id;
+        this.team_manager_id = row.team_manager_id;
     }
 
     // ----------------------------------------------------
     // CREATE PROJECT
     // ----------------------------------------------------
-    static async create(project_code, project_name, client = null, color = null) {
+    static async create(project_code, project_name, client = null, color = null, project_manager_id = null, team_manager_id = null) {
         const query = `
-            INSERT INTO projects (project_code, project_name, client, color)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO projects (project_code, project_name, client, color, project_manager_id, team_manager_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
         `;
 
@@ -24,7 +26,9 @@ class Project {
             project_code,
             project_name,
             client,
-            color
+            color,
+            project_manager_id,
+            team_manager_id
         ]);
 
         return new Project(result.rows[0]);
@@ -64,7 +68,7 @@ class Project {
     // UPDATE PROJECT
     // ----------------------------------------------------
     static async update(id, fields) {
-        const allowed = ["project_code", "project_name", "client", "color"];
+        const allowed = ["project_code", "project_name", "client", "color", "project_manager_id", "team_manager_id"];
         const updates = [];
         const values = [];
         let index = 1;

@@ -67,6 +67,15 @@ function buildCsv(headers, rows) {
     return [headerLine, ...lines].join("\n");
 }
 
+async function getAssignableManagers() {
+    return (await db.query(
+        `SELECT id, name, email, role
+         FROM users
+         WHERE role IN ('manager', 'admin')
+         ORDER BY name ASC`
+    )).rows;
+}
+
 router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         const teamCountResult = await db.query("SELECT COUNT(*)::int AS count FROM users WHERE role = 'staff'");
@@ -166,11 +175,15 @@ router.get("/projects", requireLogin, requireRole("admin", "manager"), async (re
     try {
         const projects = (await db.query(
             `SELECT p.id, p.project_code, p.project_name,
+                    pm.name AS project_manager_name,
+                    tm.name AS team_manager_name,
                     COALESCE(SUM(a.hours_per_week), 0)::int AS total_hours,
                     COUNT(DISTINCT a.user_id)::int AS members
              FROM projects p
+             LEFT JOIN users pm ON pm.id = p.project_manager_id
+             LEFT JOIN users tm ON tm.id = p.team_manager_id
              LEFT JOIN assignments a ON a.project_id = p.id
-             GROUP BY p.id, p.project_code, p.project_name
+             GROUP BY p.id, p.project_code, p.project_name, pm.name, tm.name
              ORDER BY p.project_code`
         )).rows;
 
@@ -186,15 +199,25 @@ router.get("/projects", requireLogin, requireRole("admin", "manager"), async (re
 });
 
 router.get("/projects/add", requireLogin, requireRole("admin", "manager"), (req, res) => {
-    renderManagerPage(req, res, "manager-project-add", {
-        form: {
-            project_code: "",
-            project_name: "",
-            client: "",
-            color: "#0b8a4a"
-        },
-        error: null
-    });
+    getAssignableManagers()
+        .then((managers) => {
+            renderManagerPage(req, res, "manager-project-add", {
+                form: {
+                    project_code: "",
+                    project_name: "",
+                    client: "",
+                    color: "#0b8a4a",
+                    project_manager_id: "",
+                    team_manager_id: ""
+                },
+                managers,
+                error: null
+            });
+        })
+        .catch((err) => {
+            console.error("Manager add project load error:", err);
+            res.status(500).send("Failed to load project create page");
+        });
 });
 
 router.post("/projects/add", requireLogin, requireRole("admin", "manager"), async (req, res) => {
@@ -202,41 +225,90 @@ router.post("/projects/add", requireLogin, requireRole("admin", "manager"), asyn
     const project_name = String(req.body.project_name || "").trim();
     const client = String(req.body.client || "").trim();
     const color = String(req.body.color || "").trim() || "#0b8a4a";
+    const project_manager_id = String(req.body.project_manager_id || "").trim();
+    const team_manager_id = String(req.body.team_manager_id || "").trim();
 
     const form = {
         project_code,
         project_name,
         client,
-        color
+        color,
+        project_manager_id,
+        team_manager_id
     };
 
     if (!project_code || !project_name) {
+        const managers = await getAssignableManagers();
         return renderManagerPage(req, res, "manager-project-add", {
             form,
+            managers,
             error: "Project code and project name are required."
         });
     }
 
     try {
+        const managerIds = [project_manager_id, team_manager_id]
+            .filter(Boolean)
+            .map((id) => Number(id));
+
+        if (managerIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+            const managers = await getAssignableManagers();
+            return renderManagerPage(req, res, "manager-project-add", {
+                form,
+                managers,
+                error: "Invalid manager selection."
+            });
+        }
+
+        if (managerIds.length > 0) {
+            const validManagers = await db.query(
+                `SELECT id
+                 FROM users
+                 WHERE id = ANY($1::int[])
+                   AND role IN ('manager', 'admin')`,
+                [managerIds]
+            );
+
+            if (validManagers.rows.length !== managerIds.length) {
+                const managers = await getAssignableManagers();
+                return renderManagerPage(req, res, "manager-project-add", {
+                    form,
+                    managers,
+                    error: "One or more selected managers are not valid."
+                });
+            }
+        }
+
         await db.query(
-            `INSERT INTO projects (project_code, project_name, client, color)
-             VALUES ($1, $2, $3, $4)`,
-            [project_code, project_name, client || null, color]
+            `INSERT INTO projects (project_code, project_name, client, color, project_manager_id, team_manager_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+                project_code,
+                project_name,
+                client || null,
+                color,
+                project_manager_id ? Number(project_manager_id) : null,
+                team_manager_id ? Number(team_manager_id) : null
+            ]
         );
 
         const params = new URLSearchParams({ message: "Project created successfully." });
         return res.redirect(withAdminView(req, `/manager/projects?${params.toString()}`));
     } catch (err) {
         if (err && err.code === "23505") {
+            const managers = await getAssignableManagers();
             return renderManagerPage(req, res, "manager-project-add", {
                 form,
+                managers,
                 error: "Project code already exists. Use a unique code."
             });
         }
 
         console.error("Manager add project error:", err);
+        const managers = await getAssignableManagers();
         return renderManagerPage(req, res, "manager-project-add", {
             form,
+            managers,
             error: "Failed to create project. Please try again."
         });
     }
@@ -245,7 +317,13 @@ router.post("/projects/add", requireLogin, requireRole("admin", "manager"), asyn
 router.get("/projects/:id", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         const projectResult = await db.query(
-            "SELECT id, project_code, project_name, color FROM projects WHERE id = $1",
+            `SELECT p.id, p.project_code, p.project_name, p.color,
+                    pm.name AS project_manager_name,
+                    tm.name AS team_manager_name
+             FROM projects p
+             LEFT JOIN users pm ON pm.id = p.project_manager_id
+             LEFT JOIN users tm ON tm.id = p.team_manager_id
+             WHERE p.id = $1`,
             [req.params.id]
         );
 
@@ -285,7 +363,9 @@ router.get("/projects/:id", requireLogin, requireRole("admin", "manager"), async
                 status: team.length > 0 ? "Active" : "No assignments",
                 start_date: "N/A",
                 end_date: "N/A",
-                total_hours: totalHoursResult.rows[0].total_hours
+                total_hours: totalHoursResult.rows[0].total_hours,
+                project_manager: projectRow.project_manager_name || "Unassigned",
+                team_manager: projectRow.team_manager_name || "Unassigned"
             },
             team,
             tasks: [],
