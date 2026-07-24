@@ -221,7 +221,7 @@ router.get("/add", async (req, res) => {
         const teamMembersQuery = `
             SELECT id, name, weekly_capacity, working_days
             FROM users
-            WHERE role = 'staff'
+            WHERE role IN ('staff', 'manager', 'admin')
             ORDER BY name
         `;
 
