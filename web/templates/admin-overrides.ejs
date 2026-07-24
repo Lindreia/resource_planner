@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Override Requests | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body logo-bg">
+    <div class="login-container fade-in wide">
+        <h2>Override Requests</h2>
+        <p class="subtitle">Track conflicts, requests, approvals, and rejections.</p>
+
+        <% if (error) { %><div class="error-box"><%= error %></div><% } %>
+        <% if (message) { %><div class="success-box"><%= message %></div><% } %>
+
+        <form method="POST" action="/admin/overrides/request" class="mb-3">
+            <label>Booking ID</label>
+            <input type="number" name="booking_id" required>
+            <label>Reason</label>
+            <input type="text" name="reason" placeholder="Reason for override" required>
+            <button class="login-btn small-btn" type="submit">Submit Request</button>
+        </form>
+
+        <% if (requests.length === 0) { %>
+            <div class="info-text">No override requests found.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>ID</th>
+                    <th>Booking</th>
+                    <th>Requested By</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                <% requests.forEach(r => { %>
+                    <tr>
+                        <td><%= r.id %></td>
+                        <td><%= r.booking_id %></td>
+                        <td><%= r.requested_by_name || 'Unknown' %></td>
+                        <td><%= r.reason %></td>
+                        <td><%= r.status %></td>
+                        <td>
+                            <% if (isAdmin && r.status === 'pending') { %>
+                                <form method="POST" action="/admin/overrides/<%= r.id %>/approve" class="inline-form">
+                                    <button class="login-btn small-btn" type="submit">Approve</button>
+                                </form>
+                                <form method="POST" action="/admin/overrides/<%= r.id %>/reject" class="inline-form">
+                                    <button class="login-btn small-btn warn-btn" type="submit">Reject</button>
+                                </form>
+                            <% } else { %>
+                                <span class="text-muted">No action</span>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+        <div class="footer-links">
+            <a href="/admin/dashboard">Back to Admin Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>
