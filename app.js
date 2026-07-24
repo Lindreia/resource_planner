@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const PgSessionFactory = require("connect-pg-simple");
 const path = require("path");
+const fs = require("fs");
 const expressLayouts = require("express-ejs-layouts");
 const bcrypt = require("bcryptjs");
 const { createTables } = require("./create_tables");
@@ -28,6 +29,21 @@ function hasStrongPassword(password) {
     if (!/[0-9]/.test(password)) return false;
     if (!/[^A-Za-z0-9]/.test(password)) return false;
     return true;
+}
+
+function resolveWebRoot() {
+    const candidates = [
+        path.join(__dirname, "web"),
+        path.join(__dirname, "resource_planner", "web")
+    ];
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(path.join(candidate, "templates", "weekly.ejs"))) {
+            return candidate;
+        }
+    }
+
+    return candidates[0];
 }
 
 async function ensureBootstrapAdmin() {
@@ -92,12 +108,13 @@ async function startServer() {
     // ───────────────────────────────────────────────────────────
     // Templates + Static
     // ───────────────────────────────────────────────────────────
-    app.set("views", path.join(__dirname, "web/templates"));
+    const webRoot = resolveWebRoot();
+    app.set("views", path.join(webRoot, "templates"));
     app.set("view engine", "ejs");
 
-    app.use("/static", express.static(path.join(__dirname, "web/projects/public/static")));
-    app.use("/static", express.static(path.join(__dirname, "web/public/static")));
-    app.use("/docs", express.static(path.join(__dirname, "web/public/docs")));
+    app.use("/static", express.static(path.join(webRoot, "projects", "public", "static")));
+    app.use("/static", express.static(path.join(webRoot, "public", "static")));
+    app.use("/docs", express.static(path.join(webRoot, "public", "docs")));
 
     // ───────────────────────────────────────────────────────────
     // Body parsers

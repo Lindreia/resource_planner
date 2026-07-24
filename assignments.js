@@ -141,17 +141,31 @@ router.post("/add", async (req, res) => {
             return res.status(400).json({ conflicts });
         }
 
-        const userResult = await db.query(
-            "SELECT name, working_days FROM users WHERE id = $1",
-            [teamMemberId]
-        );
+        let userResult;
+        try {
+            userResult = await db.query(
+                "SELECT name, working_days FROM users WHERE id = $1",
+                [teamMemberId]
+            );
+        } catch (err) {
+            if (err && err.code === "42703") {
+                userResult = await db.query(
+                    "SELECT name FROM users WHERE id = $1",
+                    [teamMemberId]
+                );
+            } else {
+                throw err;
+            }
+        }
 
         if (userResult.rows.length === 0) {
             return res.status(400).json({ error: "Team member not found" });
         }
 
         const user = userResult.rows[0];
-        const allowedDays = parseWorkingDays(user.working_days);
+        const allowedDays = user.working_days
+            ? parseWorkingDays(user.working_days)
+            : ["Mon", "Tue", "Wed", "Thu", "Fri"];
         const weeklyHours = hoursPerDay * Math.max(allowedDays.length, 1);
 
         if (allowedDays.length === 0) {
@@ -219,7 +233,7 @@ router.post("/add", async (req, res) => {
 router.get("/add", async (req, res) => {
     try {
         const teamMembersQuery = `
-            SELECT id, name, weekly_capacity, working_days
+            SELECT id, name
             FROM users
             WHERE role IN ('staff', 'manager', 'admin')
             ORDER BY name
