@@ -112,7 +112,8 @@ async function createTables() {
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 start_date DATE NOT NULL,
                 end_date DATE,
-                hours_per_week INTEGER NOT NULL,
+                hours_per_week NUMERIC(6,2) NOT NULL,
+                hours_per_day NUMERIC(6,2),
                 work_days INTEGER NOT NULL DEFAULT 5,
                 start_time TEXT,
                 end_time TEXT,
@@ -129,6 +130,26 @@ async function createTables() {
         await db.query(`
             ALTER TABLE assignments
             ADD COLUMN IF NOT EXISTS end_time TEXT;
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ADD COLUMN IF NOT EXISTS hours_per_day NUMERIC(6,2);
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ALTER COLUMN hours_per_week TYPE NUMERIC(6,2)
+            USING hours_per_week::NUMERIC(6,2);
+        `);
+
+        await db.query(`
+            UPDATE assignments
+            SET hours_per_day = CASE
+                WHEN work_days > 0 THEN ROUND((hours_per_week::NUMERIC / work_days)::NUMERIC, 2)
+                ELSE hours_per_week::NUMERIC
+            END
+            WHERE hours_per_day IS NULL;
         `);
         console.log("Assignments table ensured.");
 
