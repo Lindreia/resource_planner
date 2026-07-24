@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add New User | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="login-body logo-bg">
+
+    <div class="login-container fade-in">
+
+        <h2>Add New User</h2>
+        <p class="subtitle">Create a new account for staff, managers, or admins</p>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <% if (message) { %>
+            <div class="success-box"><%= message %></div>
+        <% } %>
+
+        <form method="POST" action="/admin/add-user">
+
+            <div class="input-group">
+                <label>Name</label>
+                <input type="text" name="name" required placeholder="John Smith">
+            </div>
+
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" name="email" required placeholder="john@example.com">
+            </div>
+
+            <div class="input-group">
+                <label>Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required>
+                    <span class="toggle-password" onclick="togglePassword()">👁️</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Role</label>
+                <select name="role" required class="role-select">
+                    <option value="staff">Staff</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Weekly Capacity (hours)</label>
+                <input type="number" name="weekly_capacity" min="1" step="1" value="40" required>
+            </div>
+
+            <div class="input-group">
+                <label>Working Days</label>
+                <select name="working_days" class="role-select" multiple size="7" required>
+                    <option value="Mon" selected>Monday</option>
+                    <option value="Tue" selected>Tuesday</option>
+                    <option value="Wed" selected>Wednesday</option>
+                    <option value="Thu" selected>Thursday</option>
+                    <option value="Fri" selected>Friday</option>
+                    <option value="Sat">Saturday</option>
+                    <option value="Sun">Sunday</option>
+                </select>
+                <small>Hold Ctrl (Windows) to select multiple days.</small>
+            </div>
+
+            <button class="login-btn" type="submit">Create User</button>
+
+            <div class="theme-toggle" onclick="toggleTheme()">
+                🌙 Dark Mode
+            </div>
+
+        </form>
+
+        <div class="footer-links">
+            <a href="/admin/users">Back to User List</a>
+        </div>
+
+    </div>
+
+<script>
+function togglePassword() {
+    const field = document.getElementById("password");
+    field.type = field.type === "password" ? "text" : "password";
+}
+
+function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) {
+    document.documentElement.setAttribute("data-theme", saved);
+}
+</script>
+
+</body>
+</html>

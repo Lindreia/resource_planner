@@ -1,0 +1,144 @@
+router.get("/daily", requireLogin, async (req, res) => {
+    try {
+        // 1. Determine the selected date
+        const selected = req.query.date
+            ? new Date(req.query.date)
+            : new Date();
+
+        const dayISO = selected.toISOString().slice(0, 10);
+
+        // Navigation dates
+        const prevDate = new Date(selected);
+        prevDate.setDate(selected.getDate() - 1);
+
+        const nextDate = new Date(selected);
+        nextDate.setDate(selected.getDate() + 1);
+
+        // Week label (Mon → Sun)
+        const monday = new Date(selected);
+        monday.setDate(selected.getDate() - selected.getDay() + 1);
+
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        const week_label = `${monday.toISOString().slice(0, 10)} → ${sunday
+            .toISOString()
+            .slice(0, 10)}`;
+
+        // Build the 7-day header
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+
+            days.push({
+                label: d.toLocaleDateString("en-NZ", { weekday: "short" }),
+                date: d.toISOString().slice(0, 10),
+                is_today: d.toDateString() === new Date().toDateString()
+            });
+        }
+
+        // 2. Fetch all team members
+        const usersResult = await db.query(`
+            SELECT id, name, weekly_capacity
+            FROM users
+            ORDER BY name;
+        `);
+
+        const users = usersResult.rows;
+
+        // 3. Fetch all assignments that overlap this week
+        const assignmentQuery = `
+            SELECT 
+                a.user_id,
+                p.project_code,
+                p.color,
+                a.hours_per_week,
+                a.work_days,
+                a.start_date,
+                a.end_date
+            FROM assignments a
+            JOIN projects p ON p.id = a.project_id
+            WHERE a.start_date <= $1
+              AND (a.end_date IS NULL OR a.end_date >= $2)
+        `;
+
+        const assignmentResult = await db.query(assignmentQuery, [
+            sunday.toISOString().slice(0, 10),
+            monday.toISOString().slice(0, 10)
+        ]);
+
+        const assignments = assignmentResult.rows;
+
+        // 4. Build the daily grid
+        const daily = users.map(u => {
+            const row = {
+                name: u.name,
+                capacity: u.weekly_capacity,
+                total: 0,
+                days: []
+            };
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const dISO = d.toISOString().slice(0, 10);
+
+                const cellProjects = [];
+
+                assignments.forEach(a => {
+                    if (a.user_id !== u.id) return;
+
+                    const start = new Date(a.start_date);
+                    const end = a.end_date ? new Date(a.end_date) : null;
+
+                    const inRange =
+                        start <= d && (!end || end >= d);
+
+                    if (!inRange) return;
+
+                    const workDays = a.work_days || "";
+                    const weekday = d.getDay(); // 0=Sun, 1=Mon...
+
+                    if (!workDays.includes(weekday.toString())) return;
+
+                    const dailyHours = a.hours_per_week / workDays.length;
+
+                    cellProjects.push({
+                        code: a.project_code,
+                        color: a.color,
+                        hours: dailyHours
+                    });
+
+                    row.total += dailyHours;
+                });
+
+                const totalHours = cellProjects.reduce((s, p) => s + p.hours, 0);
+
+                row.days.push({
+                    date: dISO,
+                    projects: cellProjects,
+                    total: totalHours
+                });
+            }
+
+            return row;
+        });
+
+        // 5. Render the page
+        res.render("daily", {
+            user: req.session.user,
+            week_label,
+            week_start: {
+                prev: prevDate.toISOString().slice(0, 10),
+                next: nextDate.toISOString().slice(0, 10)
+            },
+            days,
+            daily
+        });
+
+    } catch (err) {
+        console.error("Daily planner error:", err);
+        res.status(500).send("Server error");
+    }
+});

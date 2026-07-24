@@ -1,0 +1,105 @@
+<div class="container-fluid py-4 admin-users-page">
+    <div class="dashboard-card p-4 mx-auto" style="max-width: 1400px;">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+            <div>
+                <h1 class="h3 mb-2">User Management</h1>
+                <p class="text-muted mb-0">Manage roles, unlock accounts, and reset user details</p>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="/admin/users/add" class="btn btn-primary btn-sm">Create User</a>
+                <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
+                <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+            </div>
+        </div>
+
+        <% if (user && (user.role || '').toLowerCase() === 'admin') { %>
+            <div class="dashboard-card mb-4">
+                <div class="dashboard-card-title">Dashboard Views</div>
+                <p class="mb-3">Open each dashboard independently from user management.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/admin/dashboard" class="btn btn-success btn-sm">Admin Dashboard</a>
+                    <a href="/manager/dashboard" class="btn btn-outline-success btn-sm">Manager Dashboard</a>
+                    <a href="/weekly" class="btn btn-outline-secondary btn-sm">Weekly Dashboard</a>
+                    <a href="/monthly" class="btn btn-outline-secondary btn-sm">Monthly Dashboard</a>
+                    <a href="/daily" class="btn btn-outline-secondary btn-sm">Daily Dashboard</a>
+                </div>
+            </div>
+        <% } %>
+
+        <% if (message) { %>
+            <div class="alert alert-success"><%= message %></div>
+        <% } %>
+
+        <% if (error) { %>
+            <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+
+        <div class="table-responsive">
+            <table class="table align-middle user-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Locked?</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% users.forEach(user => { %>
+                        <tr>
+                            <td><%= user.name %></td>
+                            <td><%= user.email %></td>
+                            <td><span class="badge text-bg-secondary"><%= user.role %></span></td>
+                            <td>
+                                <% if (user.locked_until) { %>
+                                    🔒 Until <%= user.locked_until %>
+                                <% } else { %>
+                                    ✔ Active
+                                <% } %>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <% if (user.locked_until) { %>
+                                        <form method="POST" action="/admin/unlock/<%= user.id %>" class="inline-form">
+                                            <button class="btn btn-sm btn-outline-primary" type="submit">Unlock</button>
+                                        </form>
+                                    <% } %>
+
+                                    <form method="POST" action="/admin/change-role/<%= user.id %>" class="inline-form d-flex gap-2 align-items-center">
+                                        <select name="role" class="form-select form-select-sm role-select">
+                                            <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
+                                            <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+                                            <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-primary" type="submit">Update</button>
+                                    </form>
+
+                                    <form method="POST" action="/admin/reset-password/<%= user.id %>" class="inline-form">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Reset Password</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) {
+    document.documentElement.setAttribute("data-theme", saved);
+}
+</script>

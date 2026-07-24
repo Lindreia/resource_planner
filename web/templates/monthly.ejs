@@ -1,0 +1,150 @@
+router.get("/monthly", requireLogin, async (req, res) => {
+    try {
+        // 1. Determine month start
+        const today = new Date();
+        const selected = req.query.start
+            ? new Date(req.query.start)
+            : new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const year = selected.getFullYear();
+        const month = selected.getMonth();
+
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0);
+
+        const month_label = monthStart.toLocaleDateString("en-NZ", {
+            month: "long",
+            year: "numeric"
+        });
+
+        // Navigation
+        const prevStart = new Date(year, month - 1, 1);
+        const prevEnd = new Date(year, month, 0);
+
+        const nextStart = new Date(year, month + 1, 1);
+        const nextEnd = new Date(year, month + 2, 0);
+
+        // 2. Build weeks in the month
+        const weeks = [];
+        let cursor = new Date(monthStart);
+
+        while (cursor <= monthEnd) {
+            const weekStart = new Date(cursor);
+            const weekEnd = new Date(cursor);
+            weekEnd.setDate(weekStart.getDate() + 6);
+
+            weeks.push({
+                label: `Week ${weeks.length + 1}`,
+                range: `${weekStart.toISOString().slice(0, 10)} → ${weekEnd
+                    .toISOString()
+                    .slice(0, 10)}`,
+                start: weekStart.toISOString().slice(0, 10),
+                end: weekEnd.toISOString().slice(0, 10)
+            });
+
+            cursor.setDate(cursor.getDate() + 7);
+        }
+
+        // 3. Fetch all users
+        const usersResult = await db.query(`
+            SELECT id, name
+            FROM users
+            ORDER BY name;
+        `);
+
+        const users = usersResult.rows;
+
+        // 4. Fetch all assignments overlapping the month
+        const assignmentQuery = `
+            SELECT 
+                a.user_id,
+                p.project_code,
+                p.project_name,
+                p.color,
+                a.start_date,
+                a.end_date,
+                a.work_days
+            FROM assignments a
+            JOIN projects p ON p.id = a.project_id
+            WHERE a.start_date <= $1
+              AND (a.end_date IS NULL OR a.end_date >= $2)
+        `;
+
+        const assignmentResult = await db.query(assignmentQuery, [
+            monthEnd.toISOString().slice(0, 10),
+            monthStart.toISOString().slice(0, 10)
+        ]);
+
+        const assignments = assignmentResult.rows;
+
+        // 5. Build monthly grid
+        const monthly = users.map(u => {
+            const row = {
+                name: u.name,
+                weeks: []
+            };
+
+            weeks.forEach(w => {
+                const weekProjects = [];
+
+                assignments.forEach(a => {
+                    if (a.user_id !== u.id) return;
+
+                    const start = new Date(a.start_date);
+                    const end = a.end_date ? new Date(a.end_date) : null;
+
+                    const weekStart = new Date(w.start);
+                    const weekEnd = new Date(w.end);
+
+                    const overlaps =
+                        start <= weekEnd && (!end || end >= weekStart);
+
+                    if (!overlaps) return;
+
+                    weekProjects.push({
+                        code: a.project_code,
+                        color: a.color
+                    });
+                });
+
+                row.weeks.push({
+                    projects: weekProjects
+                });
+            });
+
+            return row;
+        });
+
+        // 6. Build legend
+        const legendItems = await db.query(`
+            SELECT project_code, project_name, color
+            FROM projects
+            ORDER BY project_code;
+        `);
+
+        const legend = {
+            month_label,
+            prev_start: prevStart.toISOString().slice(0, 10),
+            prev_end: prevEnd.toISOString().slice(0, 10),
+            next_start: nextStart.toISOString().slice(0, 10),
+            next_end: nextEnd.toISOString().slice(0, 10),
+            items: legendItems.rows.map(p => ({
+                code: p.project_code,
+                name: p.project_name,
+                color: p.color
+            }))
+        };
+
+        // 7. Render
+        res.render("monthly", {
+            user: req.session.user,
+            legend,
+            weeks,
+            monthly
+        });
+
+    } catch (err) {
+        console.error("Monthly planner error:", err);
+        res.status(500).send("Server error");
+    }
+});

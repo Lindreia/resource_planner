@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin – Unlock Accounts | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="login-body logo-bg">
+
+    <div class="login-container fade-in">
+
+        <h2>Unlock User Accounts</h2>
+        <p class="subtitle">These accounts are currently locked due to failed login attempts</p>
+
+        <% if (users.length === 0) { %>
+            <div class="info-text">No locked accounts at the moment.</div>
+        <% } else { %>
+
+            <table class="user-table">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Locked Until</th>
+                    <th>Action</th>
+                </tr>
+
+                <% users.forEach(user => { %>
+                    <tr>
+                        <td><%= user.name %></td>
+                        <td><%= user.email %></td>
+                        <td><%= user.locked_until %></td>
+                        <td>
+                            <form method="POST" action="/admin/unlock/<%= user.id %>">
+                                <button class="login-btn small-btn" type="submit">Unlock</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+            </table>
+
+        <% } %>
+
+        <div class="theme-toggle" onclick="toggleTheme()">
+            🌙 Dark Mode
+        </div>
+
+        <div class="footer-links">
+            <a href="/dashboard">Back to Dashboard</a>
+        </div>
+
+    </div>
+
+<script>
+function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) {
+    document.documentElement.setAttribute("data-theme", saved);
+}
+</script>
+
+</body>
+</html>

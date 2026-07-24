@@ -1,0 +1,45 @@
+<%- include("../partials/header") %>
+
+<h2 class="mb-4">Add Project</h2>
+
+<div class="r8-card p-4">
+    <form method="POST">
+
+        <table class="table table-borderless table-sm">
+            <tr>
+                <th style="width: 180px;">Project Code</th>
+                <td>
+                    <input type="text" name="project_code" class="form-control"
+                           required>
+                </td>
+            </tr>
+
+            <tr>
+                <th>Project Name</th>
+                <td>
+                    <input type="text" name="project_name" class="form-control"
+                           required>
+                </td>
+            </tr>
+
+            <tr>
+                <th>Client</th>
+                <td>
+                    <input type="text" name="client" class="form-control">
+                </td>
+            </tr>
+
+            <tr>
+                <th>Color</th>
+                <td>
+                    <input type="color" name="color" class="form-control form-control-color"
+                           value="#000000">
+                </td>
+            </tr>
+        </table>
+
+        <button class="btn btn-success mt-3">Add Project</button>
+    </form>
+</div>
+
+<%- include("../partials/footer") %>

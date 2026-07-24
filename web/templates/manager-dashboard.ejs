@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manager Dashboard | Resource Planner</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body data-theme="light">
+
+<div class="container-fluid py-4">
+
+    <!-- Main Content -->
+    <div class="content">
+
+        <h2>Manager Dashboard</h2>
+        <p class="subtitle">Team overview and management tools</p>
+
+        <% if (message) { %>
+            <div class="success-box"><%= message %></div>
+        <% } %>
+
+        <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <!-- Dashboard Cards -->
+        <div class="dashboard-grid">
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Your Team Members</div>
+                <div class="dashboard-kpi"><%= stats.teamCount %></div>
+                <div class="dashboard-kpi-label">Active Staff</div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Bookings Today</div>
+                <div class="dashboard-kpi"><%= stats.todayBookings %></div>
+                <div class="dashboard-kpi-label">Hours Logged</div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Pending Approvals</div>
+                <div class="dashboard-kpi"><%= stats.pendingApprovals %></div>
+                <div class="dashboard-kpi-label">Awaiting Review</div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Active Projects</div>
+                <div class="dashboard-kpi"><%= stats.projectCount %></div>
+                <div class="dashboard-kpi-label">In Progress</div>
+            </div>
+
+        </div>
+
+        <!-- Manager Tools -->
+        <h3 class="section-title">Manager Tools</h3>
+
+        <div class="admin-links">
+            <a class="admin-btn" href="/manager/team">View Team</a>
+            <a class="admin-btn" href="/manager/bookings">Manage Bookings</a>
+            <a class="admin-btn" href="/manager/approvals">Approve Requests</a>
+            <a class="admin-btn" href="/manager/projects">Project Overview</a>
+            <a class="admin-btn disabled">Reports (coming soon)</a>
+        </div>
+
+        <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
+
+    </div>
+
+</div>
+
+<script>
+/* Theme toggle */
+function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+}
+
+const saved = localStorage.getItem("theme");
+if (saved) document.documentElement.setAttribute("data-theme", saved);
+</script>
+
+</body>
+</html>
