@@ -3,6 +3,30 @@ const router = express.Router();
 const { getConnection } = require("./database");
 
 const db = getConnection();
+const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function parseWorkingDays(value) {
+    if (!value) return [];
+
+    return String(value)
+        .split(",")
+        .map((v) => v.trim())
+        .filter((d) => WEEKDAY_ORDER.includes(d));
+}
+
+function toNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getEffectiveDailyHours(row) {
+    const explicitDaily = toNumber(row.hours_per_day);
+    if (explicitDaily > 0) return explicitDaily;
+
+    const weekly = toNumber(row.hours_per_week);
+    const dayCount = Math.max(toNumber(row.work_days), 1);
+    return weekly > 0 ? weekly / dayCount : 0;
+}
 
 // ---------------------------------------------------------
 // TIME CONFLICT CHECKER (POSTGRES)
@@ -35,20 +59,34 @@ async function hasTimeConflict(teamMemberId, startDate, endDate, startTime, endT
 // ---------------------------------------------------------
 // WEEKLY CAPACITY CHECK (POSTGRES)
 // ---------------------------------------------------------
-async function exceedsWeeklyCapacity(teamMemberId, startDate, endDate, hoursPerWeek) {
+async function exceedsWeeklyCapacity(teamMemberId, startDate, endDate, hoursPerDay, workingDaysCount) {
     const query = `
-        SELECT SUM(hours_per_week) AS total
-        FROM assignments
-        WHERE user_id = $1
-          AND NOT ($2 > end_date OR $3 < start_date)
+        SELECT
+            u.weekly_capacity,
+            u.working_days,
+            a.hours_per_day,
+            a.hours_per_week,
+            a.work_days
+        FROM users u
+        LEFT JOIN assignments a
+          ON a.user_id = u.id
+         AND NOT ($2 > a.end_date OR $3 < a.start_date)
+        WHERE u.id = $1
     `;
 
     const result = await db.query(query, [teamMemberId, endDate, startDate]);
-    const current = result.rows[0].total || 0;
+    if (result.rows.length === 0) {
+        return { exceeded: false, total: 0, weeklyCapacity: 40 };
+    }
 
-    const total = current + hoursPerWeek;
+    const weeklyCapacity = toNumber(result.rows[0].weekly_capacity) || 40;
+    const current = result.rows.reduce((sum, row) => {
+        const existingDays = parseWorkingDays(row.working_days).length || 5;
+        return sum + (getEffectiveDailyHours(row) * existingDays);
+    }, 0);
 
-    return { exceeded: total > 40, total };
+    const total = current + (hoursPerDay * Math.max(workingDaysCount, 1));
+    return { exceeded: total > weeklyCapacity, total, weeklyCapacity };
 }
 
 // ---------------------------------------------------------
@@ -68,7 +106,7 @@ router.post("/add", async (req, res) => {
         const startTime = req.body.start_time;
         const endTime = req.body.end_time;
 
-        const hoursPerWeek = parseInt(req.body.hours_per_week);
+        const hoursPerDay = Number(req.body.hours_per_day ?? req.body.hours_per_week);
 
         if (!teamMemberId || !projectId) {
             return res.status(400).json({ error: "Invalid team member or project" });
@@ -81,6 +119,22 @@ router.post("/add", async (req, res) => {
         if (endTime <= startTime) {
             return res.status(400).json({ error: "End time must be after start time" });
         }
+
+        if (!Number.isFinite(hoursPerDay) || hoursPerDay <= 0) {
+            return res.status(400).json({ error: "Allocated hours per day must be a positive number" });
+        }
+
+        const userResult = await db.query(
+            "SELECT working_days FROM users WHERE id = $1",
+            [teamMemberId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ error: "Team member not found" });
+        }
+
+        const allowedDays = parseWorkingDays(userResult.rows[0].working_days);
+        const weeklyHours = hoursPerDay * Math.max(allowedDays.length, 1);
 
         // TIME CONFLICTS
         const conflicts = await hasTimeConflict(
@@ -97,15 +151,16 @@ router.post("/add", async (req, res) => {
 
         // WEEKLY CAPACITY
         if (!isAdmin) {
-            const { exceeded } = await exceedsWeeklyCapacity(
+            const { exceeded, weeklyCapacity } = await exceedsWeeklyCapacity(
                 teamMemberId,
                 startDate,
                 endDate,
-                hoursPerWeek
+                hoursPerDay,
+                allowedDays.length
             );
 
             if (exceeded) {
-                return res.status(400).json({ error: "Weekly capacity exceeded" });
+                return res.status(400).json({ error: `Weekly capacity exceeded (${weeklyCapacity} hrs)` });
             }
         }
 
@@ -116,11 +171,13 @@ router.post("/add", async (req, res) => {
                 project_id,
                 start_date,
                 end_date,
+                work_days,
+                hours_per_day,
                 start_time,
                 end_time,
                 hours_per_week
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `;
 
         await db.query(insertQuery, [
@@ -128,9 +185,11 @@ router.post("/add", async (req, res) => {
             projectId,
             startDate,
             endDate,
+            allowedDays.length,
+            hoursPerDay,
             startTime,
             endTime,
-            hoursPerWeek
+            weeklyHours
         ]);
 
         return res.json({ success: true });

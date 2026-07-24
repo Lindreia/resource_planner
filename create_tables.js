@@ -10,7 +10,8 @@ async function createTables() {
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 role TEXT NOT NULL CHECK (role IN ('admin','manager','staff','viewer','client')),
-                weekly_capacity INTEGER NOT NULL DEFAULT 40,
+                weekly_capacity NUMERIC(6,2) NOT NULL DEFAULT 40,
+                working_days TEXT NOT NULL DEFAULT 'Mon,Tue,Wed,Thu,Fri',
                 password_hash TEXT NOT NULL,
                 failed_attempts INTEGER NOT NULL DEFAULT 0,
                 locked_until TIMESTAMPTZ,
@@ -19,6 +20,17 @@ async function createTables() {
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+        `);
+
+        await db.query(`
+            ALTER TABLE users
+            ALTER COLUMN weekly_capacity TYPE NUMERIC(6,2)
+            USING weekly_capacity::NUMERIC(6,2);
+        `);
+
+        await db.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS working_days TEXT NOT NULL DEFAULT 'Mon,Tue,Wed,Thu,Fri';
         `);
         console.log("Users table ensured.");
 
@@ -79,7 +91,8 @@ async function createTables() {
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 start_date DATE NOT NULL,
                 end_date DATE,
-                hours_per_week INTEGER NOT NULL,
+                hours_per_week NUMERIC(6,2) NOT NULL,
+                hours_per_day NUMERIC(6,2),
                 work_days INTEGER NOT NULL DEFAULT 5,
                 start_time TEXT,
                 end_time TEXT,
@@ -96,6 +109,26 @@ async function createTables() {
         await db.query(`
             ALTER TABLE assignments
             ADD COLUMN IF NOT EXISTS end_time TEXT;
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ADD COLUMN IF NOT EXISTS hours_per_day NUMERIC(6,2);
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ALTER COLUMN hours_per_week TYPE NUMERIC(6,2)
+            USING hours_per_week::NUMERIC(6,2);
+        `);
+
+        await db.query(`
+            UPDATE assignments
+            SET hours_per_day = CASE
+                WHEN work_days > 0 THEN ROUND((hours_per_week::NUMERIC / work_days)::NUMERIC, 2)
+                ELSE hours_per_week::NUMERIC
+            END
+            WHERE hours_per_day IS NULL;
         `);
         console.log("Assignments table ensured.");
 

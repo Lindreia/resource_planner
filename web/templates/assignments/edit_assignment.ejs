@@ -65,9 +65,9 @@
 
         <!-- HOURS -->
         <div class="mb-3">
-            <label class="form-label">Hours per Week</label>
-            <input type="number" name="hours_per_week" class="form-control"
-                   min="1" max="80" value="<%= assignment.hours_per_week %>" required>
+            <label class="form-label">Allocated Hours per Day</label>
+            <input type="number" name="hours_per_day" class="form-control"
+                   min="0.25" step="0.25" value="<%= assignment.hours_per_day || assignment.hours_per_week %>" required>
         </div>
 
         <!-- WORK DAYS -->

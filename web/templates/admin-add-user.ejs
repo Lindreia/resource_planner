@@ -50,6 +50,25 @@
                 </select>
             </div>
 
+            <div class="input-group">
+                <label>Weekly Capacity (hours)</label>
+                <input type="number" name="weekly_capacity" min="1" step="1" value="40" required>
+            </div>
+
+            <div class="input-group">
+                <label>Working Days</label>
+                <select name="working_days" class="role-select" multiple size="7" required>
+                    <option value="Mon" selected>Monday</option>
+                    <option value="Tue" selected>Tuesday</option>
+                    <option value="Wed" selected>Wednesday</option>
+                    <option value="Thu" selected>Thursday</option>
+                    <option value="Fri" selected>Friday</option>
+                    <option value="Sat">Saturday</option>
+                    <option value="Sun">Sunday</option>
+                </select>
+                <small>Hold Ctrl (Windows) to select multiple days.</small>
+            </div>
+
             <button class="login-btn" type="submit">Create User</button>
 
             <div class="theme-toggle" onclick="toggleTheme()">

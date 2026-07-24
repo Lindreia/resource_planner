@@ -8,6 +8,15 @@ const { requireRole } = require("./middleware/requireRole");
 
 const db = getConnection();
 const ALLOWED_ROLES = new Set(["admin", "manager", "staff"]);
+const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function normalizeWorkingDays(inputDays) {
+    const days = Array.isArray(inputDays)
+        ? inputDays
+        : (inputDays ? [inputDays] : []);
+
+    return WEEKDAY_ORDER.filter((d) => days.includes(d));
+}
 
 function hasStrongPassword(password) {
     if (!password || password.length < 12) return false;
@@ -209,6 +218,8 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const role = String(req.body.role || "").trim().toLowerCase();
+    const weeklyCapacity = Number(req.body.weekly_capacity);
+    const workingDays = normalizeWorkingDays(req.body.working_days);
 
     if (!name || !email || !password || !role) {
         return res.render("admin-add-user", {
@@ -234,6 +245,22 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
         });
     }
 
+    if (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0) {
+        return res.render("admin-add-user", {
+            error: "Weekly capacity must be a positive number.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
+    if (workingDays.length === 0) {
+        return res.render("admin-add-user", {
+            error: "Select at least one working day.",
+            message: null,
+            active_page: "admin_add_user"
+        });
+    }
+
     try {
         const existing = await db.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
         if (existing.rows.length > 0) {
@@ -246,10 +273,20 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
 
         const hash = await bcrypt.hash(password, 10);
         const inserted = await db.query(
-            `INSERT INTO users (email, password_hash, role, name, failed_attempts, locked_until, mfa_enabled)
-             VALUES ($1, $2, $3, $4, 0, NULL, FALSE)
+            `INSERT INTO users (
+                email,
+                password_hash,
+                role,
+                name,
+                weekly_capacity,
+                working_days,
+                failed_attempts,
+                locked_until,
+                mfa_enabled
+            )
+             VALUES ($1, $2, $3, $4, $5, $6, 0, NULL, FALSE)
              RETURNING id, email, role, name`,
-            [email, hash, role, name]
+            [email, hash, role, name, weeklyCapacity, workingDays.join(",")]
         );
 
         await logAuditEvent(req.session.user.id, "user_created", {

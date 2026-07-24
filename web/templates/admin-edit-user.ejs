@@ -53,6 +53,32 @@
             </div>
 
             <div class="input-group">
+                <label>Weekly Capacity (hours)</label>
+                <input 
+                    type="number" 
+                    name="weekly_capacity" 
+                    min="1"
+                    step="1"
+                    value="<%= user.weekly_capacity || 40 %>" 
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label>Working Days</label>
+                <select name="working_days" class="role-select" multiple size="7" required>
+                    <option value="Mon" <%= (user.selected_working_days || []).includes('Mon') ? 'selected' : '' %>>Monday</option>
+                    <option value="Tue" <%= (user.selected_working_days || []).includes('Tue') ? 'selected' : '' %>>Tuesday</option>
+                    <option value="Wed" <%= (user.selected_working_days || []).includes('Wed') ? 'selected' : '' %>>Wednesday</option>
+                    <option value="Thu" <%= (user.selected_working_days || []).includes('Thu') ? 'selected' : '' %>>Thursday</option>
+                    <option value="Fri" <%= (user.selected_working_days || []).includes('Fri') ? 'selected' : '' %>>Friday</option>
+                    <option value="Sat" <%= (user.selected_working_days || []).includes('Sat') ? 'selected' : '' %>>Saturday</option>
+                    <option value="Sun" <%= (user.selected_working_days || []).includes('Sun') ? 'selected' : '' %>>Sunday</option>
+                </select>
+                <small>Hold Ctrl (Windows) to select multiple days.</small>
+            </div>
+
+            <div class="input-group">
                 <label>New Password (optional)</label>
                 <div class="password-wrapper">
                     <input 
