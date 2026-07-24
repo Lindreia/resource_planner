@@ -124,16 +124,30 @@ router.post("/add", async (req, res) => {
             return res.status(400).json({ error: "Allocated hours per day must be a positive number" });
         }
 
-        const userResult = await db.query(
-            "SELECT working_days FROM users WHERE id = $1",
-            [teamMemberId]
-        );
+        let userResult;
+        try {
+            userResult = await db.query(
+                "SELECT working_days FROM users WHERE id = $1",
+                [teamMemberId]
+            );
+        } catch (err) {
+            if (err && err.code === "42703") {
+                userResult = await db.query(
+                    "SELECT id FROM users WHERE id = $1",
+                    [teamMemberId]
+                );
+            } else {
+                throw err;
+            }
+        }
 
         if (userResult.rows.length === 0) {
             return res.status(400).json({ error: "Team member not found" });
         }
 
-        const allowedDays = parseWorkingDays(userResult.rows[0].working_days);
+        const allowedDays = userResult.rows[0].working_days
+            ? parseWorkingDays(userResult.rows[0].working_days)
+            : ["Mon", "Tue", "Wed", "Thu", "Fri"];
         const weeklyHours = hoursPerDay * Math.max(allowedDays.length, 1);
 
         // TIME CONFLICTS
