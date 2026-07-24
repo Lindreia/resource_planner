@@ -53,6 +53,23 @@
 
         </div>
 
+        <!-- Manager Insights -->
+        <h3 class="section-title mt-4">Manager Insights</h3>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="dashboard-card">
+                    <div class="dashboard-card-title">Workload Snapshot</div>
+                    <canvas id="managerWorkloadChart" height="140"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="dashboard-card">
+                    <div class="dashboard-card-title">Approval Pressure</div>
+                    <canvas id="managerApprovalsChart" height="140"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Manager Tools -->
         <h3 class="section-title">Manager Tools</h3>
 
@@ -61,7 +78,7 @@
             <a class="admin-btn" href="/manager/bookings">Manage Bookings</a>
             <a class="admin-btn" href="/manager/approvals">Approve Requests</a>
             <a class="admin-btn" href="/manager/projects">Project Overview</a>
-            <a class="admin-btn disabled">Reports (coming soon)</a>
+            <a class="admin-btn" href="/admin/overrides">Override Requests</a>
         </div>
 
         <div class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</div>
@@ -70,6 +87,8 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/static/logout-modal.js"></script>
 <script>
 /* Theme toggle */
 function toggleTheme() {
@@ -81,6 +100,52 @@ function toggleTheme() {
 
 const saved = localStorage.getItem("theme");
 if (saved) document.documentElement.setAttribute("data-theme", saved);
+
+// Manager chart data from existing KPI stats
+const managerStats = {
+    teamCount: Number('<%= stats.teamCount %>') || 0,
+    todayBookings: Number('<%= stats.todayBookings %>') || 0,
+    pendingApprovals: Number('<%= stats.pendingApprovals %>') || 0,
+    projectCount: Number('<%= stats.projectCount %>') || 0
+};
+
+const workloadCtx = document.getElementById("managerWorkloadChart");
+if (workloadCtx) {
+    new Chart(workloadCtx, {
+        type: "doughnut",
+        data: {
+            labels: ["Bookings Today", "Pending Approvals", "Active Projects"],
+            datasets: [{
+                data: [managerStats.todayBookings, managerStats.pendingApprovals, managerStats.projectCount],
+                backgroundColor: ["#0b8a4a", "#f59e0b", "#4f46e5"],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            plugins: { legend: { position: "bottom" } }
+        }
+    });
+}
+
+const approvalsCtx = document.getElementById("managerApprovalsChart");
+if (approvalsCtx) {
+    const reviewedApprox = Math.max(managerStats.todayBookings - managerStats.pendingApprovals, 0);
+    new Chart(approvalsCtx, {
+        type: "bar",
+        data: {
+            labels: ["Pending", "Reviewed", "Team Members"],
+            datasets: [{
+                label: "Count",
+                data: [managerStats.pendingApprovals, reviewedApprox, managerStats.teamCount],
+                backgroundColor: ["#dc2626", "#0ea5e9", "#22c55e"]
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
 </script>
 
 </body>

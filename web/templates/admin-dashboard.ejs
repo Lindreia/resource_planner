@@ -1,5 +1,3 @@
-<% layout('components/layout') %>
-
 <div class="container dashboard-container">
 
     <!-- PAGE TITLE -->
@@ -21,6 +19,14 @@
             <a href="/monthly" class="btn btn-outline-secondary btn-sm">Monthly Dashboard</a>
             <a href="/daily" class="btn btn-outline-secondary btn-sm">Daily Dashboard</a>
         </div>
+    </div>
+
+    <div class="dashboard-card mb-4">
+        <div class="dashboard-card-title">UI Reference</div>
+        <p class="mb-2">Use this page as a visual guide for the look and feel the web app should follow.</p>
+        <a href="/docs/app-look-and-feel.html" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success">
+            Open UI mockup
+        </a>
     </div>
 
     <!-- TOP KPI ROW -->
@@ -131,8 +137,39 @@
 
     </div>
 
-    <!-- LOCKED ACCOUNTS + ASSIGNMENT TREND -->
+    <!-- NOTIFICATIONS + ASSIGNMENT TREND -->
     <div class="row g-4 mt-2">
+
+        <!-- RECENT NOTIFICATIONS -->
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Admin Notifications</div>
+                <form method="POST" action="/admin/notifications/read-all" class="mb-2 text-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">Mark All Read</button>
+                </form>
+
+                <table class="dashboard-mini-table w-100">
+                    <% if (notifications && notifications.length > 0) { %>
+                        <% notifications.forEach(n => { %>
+                            <tr>
+                                <td>
+                                    <div><strong><%= n.type.replace(/_/g, ' ') %></strong></div>
+                                    <div class="small text-muted"><%= n.payload ? JSON.stringify(n.payload) : '' %></div>
+                                </td>
+                                <td class="text-end">
+                                    <span class="dashboard-status dashboard-status-amber">New</span>
+                                    <form method="POST" action="/admin/notifications/<%= n.id %>/read" class="mt-1">
+                                        <button class="btn btn-sm btn-link p-0" type="submit">Mark Read</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2" class="text-muted">No new notifications</td></tr>
+                    <% } %>
+                </table>
+            </div>
+        </div>
 
         <!-- LOCKED ACCOUNTS -->
         <div class="col-md-6">
@@ -186,8 +223,8 @@
 <script>
 (function () {
     // Assignment trend data
-    const trendMonths = <%- JSON.stringify(assignmentTrend.map(a => a.month)) %>;
-    const trendCounts = <%- JSON.stringify(assignmentTrend.map(a => a.count)) %>;
+    const trendMonths = JSON.parse('<%- JSON.stringify(assignmentTrend.map(a => a.month)) %>');
+    const trendCounts = JSON.parse('<%- JSON.stringify(assignmentTrend.map(a => a.count)) %>');
 
     const trendCtx = document.getElementById("trendChart");
     if (trendCtx) {
@@ -217,8 +254,8 @@
     }
 
     // User activity timeline data
-    const activityLabels = <%- JSON.stringify(userActivity.map(a => a.date)) %>;
-    const activityCounts = <%- JSON.stringify(userActivity.map(a => a.count)) %>;
+    const activityLabels = JSON.parse('<%- JSON.stringify(userActivity.map(a => a.date)) %>');
+    const activityCounts = JSON.parse('<%- JSON.stringify(userActivity.map(a => a.count)) %>');
 
     const activityCtx = document.getElementById("activityTimeline");
     if (activityCtx) {

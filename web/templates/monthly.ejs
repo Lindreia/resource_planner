@@ -1,150 +1,77 @@
-router.get("/monthly", requireLogin, async (req, res) => {
-    try {
-        // 1. Determine month start
-        const today = new Date();
-        const selected = req.query.start
-            ? new Date(req.query.start)
-            : new Date(today.getFullYear(), today.getMonth(), 1);
+<div class="container">
+    <h1 class="r8-page-title mb-4">Monthly Dashboard</h1>
 
-        const year = selected.getFullYear();
-        const month = selected.getMonth();
+    <div class="dashboard-card mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <a class="btn btn-sm btn-outline-secondary" href="/monthly?start=<%= prev_start %>">Previous Month</a>
+            <strong><%= month_label %> (<%= month_start %> -> <%= month_end %>)</strong>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-success" href="/exports/monthly.csv?start=<%= month_start %>">Export CSV</a>
+                <a class="btn btn-sm btn-outline-primary" href="/exports/monthly.pdf?start=<%= month_start %>">Export PDF</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/monthly?start=<%= next_start %>">Next Month</a>
+            </div>
+        </div>
+    </div>
 
-        const monthStart = new Date(year, month, 1);
-        const monthEnd = new Date(year, month + 1, 0);
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Total Booked Hours</div>
+                <div class="dashboard-kpi"><%= total_hours %></div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Project Distribution</div>
+                <canvas id="monthlyProjectChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
 
-        const month_label = monthStart.toLocaleDateString("en-NZ", {
-            month: "long",
-            year: "numeric"
+    <div class="dashboard-card mt-4">
+        <div class="dashboard-card-title">Project Summary</div>
+        <table class="dashboard-mini-table w-100">
+            <tr>
+                <th>Project</th>
+                <th>Hours</th>
+            </tr>
+            <% summary.forEach(item => { %>
+                <tr>
+                    <td>
+                        <span class="project-dot" style="background-color: <%= item.color || '#0b8a4a' %>"></span>
+                        <%= item.code %> - <%= item.name %>
+                    </td>
+                    <td><%= item.hours %></td>
+                </tr>
+            <% }) %>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const labels = <%- JSON.stringify(summary.map(s => s.code)) %>;
+    const values = <%- JSON.stringify(summary.map(s => Number(s.hours) || 0)) %>;
+    const colors = <%- JSON.stringify(summary.map(s => s.color || '#0b8a4a')) %>;
+
+    const ctx = document.getElementById("monthlyProjectChart");
+    if (ctx) {
+        new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels,
+                datasets: [{
+                    label: "Hours",
+                    data: values,
+                    backgroundColor: colors
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
         });
-
-        // Navigation
-        const prevStart = new Date(year, month - 1, 1);
-        const prevEnd = new Date(year, month, 0);
-
-        const nextStart = new Date(year, month + 1, 1);
-        const nextEnd = new Date(year, month + 2, 0);
-
-        // 2. Build weeks in the month
-        const weeks = [];
-        let cursor = new Date(monthStart);
-
-        while (cursor <= monthEnd) {
-            const weekStart = new Date(cursor);
-            const weekEnd = new Date(cursor);
-            weekEnd.setDate(weekStart.getDate() + 6);
-
-            weeks.push({
-                label: `Week ${weeks.length + 1}`,
-                range: `${weekStart.toISOString().slice(0, 10)} → ${weekEnd
-                    .toISOString()
-                    .slice(0, 10)}`,
-                start: weekStart.toISOString().slice(0, 10),
-                end: weekEnd.toISOString().slice(0, 10)
-            });
-
-            cursor.setDate(cursor.getDate() + 7);
-        }
-
-        // 3. Fetch all users
-        const usersResult = await db.query(`
-            SELECT id, name
-            FROM users
-            ORDER BY name;
-        `);
-
-        const users = usersResult.rows;
-
-        // 4. Fetch all assignments overlapping the month
-        const assignmentQuery = `
-            SELECT 
-                a.user_id,
-                p.project_code,
-                p.project_name,
-                p.color,
-                a.start_date,
-                a.end_date,
-                a.work_days
-            FROM assignments a
-            JOIN projects p ON p.id = a.project_id
-            WHERE a.start_date <= $1
-              AND (a.end_date IS NULL OR a.end_date >= $2)
-        `;
-
-        const assignmentResult = await db.query(assignmentQuery, [
-            monthEnd.toISOString().slice(0, 10),
-            monthStart.toISOString().slice(0, 10)
-        ]);
-
-        const assignments = assignmentResult.rows;
-
-        // 5. Build monthly grid
-        const monthly = users.map(u => {
-            const row = {
-                name: u.name,
-                weeks: []
-            };
-
-            weeks.forEach(w => {
-                const weekProjects = [];
-
-                assignments.forEach(a => {
-                    if (a.user_id !== u.id) return;
-
-                    const start = new Date(a.start_date);
-                    const end = a.end_date ? new Date(a.end_date) : null;
-
-                    const weekStart = new Date(w.start);
-                    const weekEnd = new Date(w.end);
-
-                    const overlaps =
-                        start <= weekEnd && (!end || end >= weekStart);
-
-                    if (!overlaps) return;
-
-                    weekProjects.push({
-                        code: a.project_code,
-                        color: a.color
-                    });
-                });
-
-                row.weeks.push({
-                    projects: weekProjects
-                });
-            });
-
-            return row;
-        });
-
-        // 6. Build legend
-        const legendItems = await db.query(`
-            SELECT project_code, project_name, color
-            FROM projects
-            ORDER BY project_code;
-        `);
-
-        const legend = {
-            month_label,
-            prev_start: prevStart.toISOString().slice(0, 10),
-            prev_end: prevEnd.toISOString().slice(0, 10),
-            next_start: nextStart.toISOString().slice(0, 10),
-            next_end: nextEnd.toISOString().slice(0, 10),
-            items: legendItems.rows.map(p => ({
-                code: p.project_code,
-                name: p.project_name,
-                color: p.color
-            }))
-        };
-
-        // 7. Render
-        res.render("monthly", {
-            user: req.session.user,
-            legend,
-            weeks,
-            monthly
-        });
-
-    } catch (err) {
-        console.error("Monthly planner error:", err);
-        res.status(500).send("Server error");
     }
-});
+})();
+</script>

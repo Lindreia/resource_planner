@@ -46,27 +46,28 @@
                 <select name="role" required class="role-select">
                     <option value="staff">Staff</option>
                     <option value="manager">Manager</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="client">External Client</option>
                     <option value="admin">Admin</option>
                 </select>
             </div>
 
             <div class="input-group">
                 <label>Weekly Capacity (hours)</label>
-                <input type="number" name="weekly_capacity" min="1" step="1" value="40" required>
+                <input type="number" name="weekly_capacity" min="1" max="80" step="0.5" value="40" required>
             </div>
 
             <div class="input-group">
                 <label>Working Days</label>
-                <select name="working_days" class="role-select" multiple size="7" required>
-                    <option value="Mon" selected>Monday</option>
-                    <option value="Tue" selected>Tuesday</option>
-                    <option value="Wed" selected>Wednesday</option>
-                    <option value="Thu" selected>Thursday</option>
-                    <option value="Fri" selected>Friday</option>
-                    <option value="Sat">Saturday</option>
-                    <option value="Sun">Sunday</option>
-                </select>
-                <small>Hold Ctrl (Windows) to select multiple days.</small>
+                <div class="d-flex flex-wrap gap-2">
+                    <label><input type="checkbox" name="working_days" value="Mon" checked> Mon</label>
+                    <label><input type="checkbox" name="working_days" value="Tue" checked> Tue</label>
+                    <label><input type="checkbox" name="working_days" value="Wed" checked> Wed</label>
+                    <label><input type="checkbox" name="working_days" value="Thu" checked> Thu</label>
+                    <label><input type="checkbox" name="working_days" value="Fri" checked> Fri</label>
+                    <label><input type="checkbox" name="working_days" value="Sat"> Sat</label>
+                    <label><input type="checkbox" name="working_days" value="Sun"> Sun</label>
+                </div>
             </div>
 
             <button class="login-btn" type="submit">Create User</button>

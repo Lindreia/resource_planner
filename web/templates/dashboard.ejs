@@ -1,5 +1,3 @@
-<% layout('components/layout') %>
-
 <div class="container">
 
     <!-- PAGE TITLE -->
@@ -160,4 +158,75 @@
 
     </div>
 
+    <!-- CHART ROW -->
+    <div class="row g-4 mt-2 mb-4">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Utilisation Mix</div>
+                <canvas id="utilisationMixChart" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="dashboard-card-title">Assignments Health</div>
+                <canvas id="assignmentHealthChart" height="140"></canvas>
+            </div>
+        </div>
+    </div>
+
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const utilisation = {
+        billable: Number('<%= utilisation.billable %>') || 0,
+        nonBillable: Number('<%= utilisation.non_billable %>') || 0,
+        capacity: Number('<%= utilisation.capacity %>') || 0
+    };
+    const remaining = Math.max(utilisation.capacity - (utilisation.billable + utilisation.nonBillable), 0);
+
+    const utilCtx = document.getElementById("utilisationMixChart");
+    if (utilCtx) {
+        new Chart(utilCtx, {
+            type: "doughnut",
+            data: {
+                labels: ["Billable", "Non-Billable", "Available"],
+                datasets: [{
+                    data: [utilisation.billable, utilisation.nonBillable, remaining],
+                    backgroundColor: ["#0b8a4a", "#0ea5e9", "#d1d5db"],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                plugins: { legend: { position: "bottom" } }
+            }
+        });
+    }
+
+    const assignments = {
+        dueThisWeek: Number('<%= assignments.due_this_week %>') || 0,
+        overdue: Number('<%= assignments.overdue %>') || 0,
+        completed: Number('<%= assignments.completed %>') || 0
+    };
+
+    const assnCtx = document.getElementById("assignmentHealthChart");
+    if (assnCtx) {
+        new Chart(assnCtx, {
+            type: "bar",
+            data: {
+                labels: ["Due This Week", "Overdue", "Completed"],
+                datasets: [{
+                    label: "Assignments",
+                    data: [assignments.dueThisWeek, assignments.overdue, assignments.completed],
+                    backgroundColor: ["#f59e0b", "#dc2626", "#22c55e"]
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+})();
+</script>
