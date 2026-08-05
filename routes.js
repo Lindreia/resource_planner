@@ -18,7 +18,7 @@ async function resolveVisibleUserIds(user) {
         return null;
     }
 
-    if (role === "staff" || role === "client") {
+    if (role === "staff" || role === "contractor" || role === "client") {
         return [userId];
     }
 
@@ -117,12 +117,32 @@ function assignmentDailyHours(row) {
     return weekly > 0 ? weekly / workDays : 0;
 }
 
+function parseAssignmentDays(value) {
+    if (!value) return [];
+
+    return String(value)
+        .split(",")
+        .map((v) => v.trim())
+        .map((name) => WEEKDAY_TO_INDEX[name])
+        .filter((day, idx, arr) => Number.isInteger(day) && arr.indexOf(day) === idx)
+        .sort((a, b) => a - b);
+}
+
+function resolveAssignmentDays(row, fallbackWorkingDays) {
+    const assignmentDays = parseAssignmentDays(row.assignment_days);
+    if (assignmentDays.length > 0) {
+        return assignmentDays;
+    }
+    return fallbackWorkingDays;
+}
+
 function assignmentHoursForPeriod(row, periodStart, periodEnd, workingDays) {
     const overlap = clampRange(row.start_date, row.end_date, periodStart, periodEnd);
     if (!overlap) return 0;
 
     const dailyHours = assignmentDailyHours(row);
-    const dayCount = countWorkingDaysBetween(overlap.start, overlap.end, workingDays);
+    const effectiveDays = resolveAssignmentDays(row, workingDays);
+    const dayCount = countWorkingDaysBetween(overlap.start, overlap.end, effectiveDays);
     return dailyHours * dayCount;
 }
 
@@ -134,7 +154,8 @@ function assignmentAppliesOnDate(row, date, workingDays) {
     if (day < start || day > end) return false;
 
     const isoDay = day.getDay() === 0 ? 7 : day.getDay();
-    return new Set(workingDays).has(isoDay);
+    const effectiveDays = resolveAssignmentDays(row, workingDays);
+    return new Set(effectiveDays).has(isoDay);
 }
 
 async function loadScopedUsers(scopedUserIds) {
@@ -163,7 +184,7 @@ async function loadScopedAssignments(scopedUserIds, periodStartIso, periodEndIso
     }
 
     return (await db.query(
-        `SELECT a.user_id, a.project_id, a.start_date, a.end_date, a.work_days, a.hours_per_week, a.hours_per_day,
+        `SELECT a.user_id, a.project_id, a.start_date, a.end_date, a.work_days, a.assignment_days, a.hours_per_week, a.hours_per_day,
                 a.start_time, a.end_time, p.project_code, p.project_name, p.color
          FROM assignments a
          JOIN projects p ON p.id = a.project_id
@@ -353,7 +374,7 @@ router.get("/weekly", requireLogin, async (req, res) => {
         }
 
         const assignments = (await db.query(
-            `SELECT a.user_id, a.project_id, a.start_date, a.end_date, a.work_days, a.hours_per_week, a.hours_per_day,
+                `SELECT a.user_id, a.project_id, a.start_date, a.end_date, a.work_days, a.assignment_days, a.hours_per_week, a.hours_per_day,
                     p.project_code, p.project_name, p.color
              FROM assignments a
              JOIN projects p ON p.id = a.project_id
@@ -481,7 +502,7 @@ router.get("/daily", requireLogin, async (req, res) => {
         }
 
         const assignments = (await db.query(
-            `SELECT a.user_id, a.start_date, a.end_date, a.work_days, a.hours_per_week, a.hours_per_day, a.start_time, a.end_time,
+                `SELECT a.user_id, a.start_date, a.end_date, a.work_days, a.assignment_days, a.hours_per_week, a.hours_per_day, a.start_time, a.end_time,
                     p.project_code, p.project_name, p.color
              FROM assignments a
              JOIN projects p ON p.id = a.project_id
@@ -584,7 +605,7 @@ router.get("/monthly", requireLogin, async (req, res) => {
         }
 
         const assignments = (await db.query(
-            `SELECT a.user_id, a.start_date, a.end_date, a.work_days, a.hours_per_week, a.hours_per_day,
+                `SELECT a.user_id, a.start_date, a.end_date, a.work_days, a.assignment_days, a.hours_per_week, a.hours_per_day,
                     p.project_code, p.project_name, p.color
              FROM assignments a
              JOIN projects p ON p.id = a.project_id
@@ -863,7 +884,7 @@ router.get("/logout", requireLogin, (req, res) => {
 router.get(
     "/dashboard",
     requireLogin,
-    requireRole("admin", "manager", "staff", "viewer", "client"),
+    requireRole("admin", "manager", "staff", "contractor", "viewer", "client"),
     async (req, res) => {
         try {
             const weekStartStr = req.query.start || "2026-05-19";

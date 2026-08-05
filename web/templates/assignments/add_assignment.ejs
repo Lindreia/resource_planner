@@ -56,14 +56,47 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Hours per Week</label>
-                            <input type="number" name="hours_per_week" class="form-control" min="1" required>
+                            <label class="form-label">Total Task Hours (optional)</label>
+                            <input type="number" name="total_hours" class="form-control" min="0.25" step="0.25" placeholder="e.g. 10">
+                            <small class="text-muted d-block mt-1">If entered, this is spread across selected assignment days in the date range.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Hours per Week (optional)</label>
+                            <input type="number" name="hours_per_week" class="form-control" min="0.25" step="0.25" placeholder="e.g. 5">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Hours per Day (optional)</label>
+                            <input type="number" name="hours_per_day" class="form-control" min="0.25" step="0.25" placeholder="e.g. 1">
+                            <small class="text-muted d-block mt-1">Enter at least one: Total Task Hours, Hours per Week, or Hours per Day.</small>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Member Working Days</label>
                             <div id="memberWorkingDaysHint" class="text-muted"></div>
                             <small class="text-muted d-block mt-1">Managed by admins on the user profile.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Assignment Days</label>
+                            <div id="assignmentDays" class="d-flex flex-wrap gap-3">
+                                <label><input type="checkbox" name="assignment_days" value="Mon"> Mon</label>
+                                <label><input type="checkbox" name="assignment_days" value="Tue"> Tue</label>
+                                <label><input type="checkbox" name="assignment_days" value="Wed"> Wed</label>
+                                <label><input type="checkbox" name="assignment_days" value="Thu"> Thu</label>
+                                <label><input type="checkbox" name="assignment_days" value="Fri"> Fri</label>
+                                <label><input type="checkbox" name="assignment_days" value="Sat"> Sat</label>
+                                <label><input type="checkbox" name="assignment_days" value="Sun"> Sun</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Select the days for this assignment (for example, Mondays only).</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Live Capacity Preview</label>
+                            <div id="capacityPreview" class="text-muted border rounded p-3 bg-light">
+                                Select a team member and dates to see projected load.
+                            </div>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -93,6 +126,19 @@
 document.getElementById("assignmentForm").addEventListener("submit", async function (event) {
     event.preventDefault();
 
+    const totalHours = Number(this.elements.total_hours.value);
+    const hoursPerWeek = Number(this.elements.hours_per_week.value);
+    const hoursPerDay = Number(this.elements.hours_per_day.value);
+    const hasHours = (Number.isFinite(totalHours) && totalHours > 0)
+        || (Number.isFinite(hoursPerWeek) && hoursPerWeek > 0)
+        || (Number.isFinite(hoursPerDay) && hoursPerDay > 0);
+
+    if (!hasHours) {
+        document.getElementById("conflictMessage").innerHTML = "<div class='alert alert-warning mb-0'>Enter total hours, hours per week, or hours per day.</div>";
+        new bootstrap.Modal(document.getElementById("conflictModal")).show();
+        return;
+    }
+
     const response = await fetch("/assignments/add", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -113,12 +159,23 @@ document.getElementById("assignmentForm").addEventListener("submit", async funct
 const memberSelect = document.getElementById("teamMemberSelect");
 const capacityHint = document.getElementById("memberCapacityHint");
 const daysHint = document.getElementById("memberWorkingDaysHint");
+const assignmentDayInputs = Array.from(document.querySelectorAll("input[name='assignment_days']"));
+const previewBox = document.getElementById("capacityPreview");
+const startDateInput = document.querySelector("input[name='start_date']");
+const endDateInput = document.querySelector("input[name='end_date']");
+const totalHoursInput = document.querySelector("input[name='total_hours']");
+const hoursPerWeekInput = document.querySelector("input[name='hours_per_week']");
+const hoursPerDayInput = document.querySelector("input[name='hours_per_day']");
 
 function applyMemberRules() {
     const option = memberSelect.options[memberSelect.selectedIndex];
     if (!option || !option.value) {
         capacityHint.textContent = "";
         daysHint.textContent = "";
+        assignmentDayInputs.forEach((input) => {
+            input.disabled = true;
+            input.checked = false;
+        });
         return;
     }
 
@@ -127,6 +184,13 @@ function applyMemberRules() {
         .split(",")
         .map((d) => d.trim())
         .filter(Boolean);
+    const allowedSet = new Set(allowed);
+
+    assignmentDayInputs.forEach((input) => {
+        const isAllowed = allowedSet.has(input.value);
+        input.disabled = !isAllowed;
+        input.checked = isAllowed;
+    });
 
     capacityHint.textContent = `Capacity: ${capacity} hrs/week`;
     daysHint.textContent = allowed.length > 0
@@ -136,4 +200,97 @@ function applyMemberRules() {
 
 memberSelect.addEventListener("change", applyMemberRules);
 applyMemberRules();
+
+function selectedAssignmentDays() {
+    return assignmentDayInputs
+        .filter((input) => input.checked && !input.disabled)
+        .map((input) => input.value);
+}
+
+function remainingClass(value) {
+    if (!Number.isFinite(value)) return "text-muted";
+    if (value < 0) return "text-danger fw-bold";
+    if (value <= 4) return "text-warning fw-bold";
+    return "text-success fw-bold";
+}
+
+async function updateCapacityPreview() {
+    const teamMember = memberSelect.value;
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+
+    if (!teamMember || !startDate || !endDate) {
+        previewBox.textContent = "Select a team member and dates to see projected load.";
+        return;
+    }
+
+    const params = new URLSearchParams({
+        team_member: teamMember,
+        start_date: startDate,
+        end_date: endDate,
+        total_hours: totalHoursInput.value || "",
+        hours_per_week: hoursPerWeekInput.value || "",
+        hours_per_day: hoursPerDayInput.value || "",
+        assignment_days: selectedAssignmentDays().join(",")
+    });
+
+    try {
+        const response = await fetch(`/assignments/preview?${params.toString()}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            previewBox.textContent = data.error || "Unable to calculate preview.";
+            return;
+        }
+
+        const daysLabel = data.effectiveDays && data.effectiveDays.length > 0
+            ? data.effectiveDays.join(", ")
+            : "None";
+
+        if (data.isContractor) {
+            previewBox.innerHTML = `
+                <div><strong>Role:</strong> Contractor (flexible capacity)</div>
+                <div><strong>Current Weekly Load:</strong> ${data.currentAllocated} hrs</div>
+                <div><strong>Projected Weekly Load (new assignment):</strong> ${data.projectedWeeklyHours} hrs</div>
+                <div><strong>Projected Daily Hours:</strong> ${data.projectedHoursPerDay} hrs/day</div>
+                <div><strong>Assignment Days:</strong> ${daysLabel}</div>
+            `;
+            return;
+        }
+
+        const remainingAfterClass = remainingClass(Number(data.remainingAfter));
+        const remainingHint = Number(data.remainingAfter) < 0
+            ? "Overbooked"
+            : Number(data.remainingAfter) <= 4
+                ? "Limited buffer"
+                : "Healthy buffer";
+
+        previewBox.innerHTML = `
+            <div><strong>Weekly Capacity:</strong> ${data.weeklyCapacity} hrs</div>
+            <div><strong>Current Weekly Load:</strong> ${data.currentAllocated} hrs</div>
+            <div><strong>Remaining Before Save:</strong> ${data.remainingBefore} hrs</div>
+            <div><strong>Projected Weekly Load (new assignment):</strong> ${data.projectedWeeklyHours} hrs</div>
+            <div><strong>Projected Daily Hours:</strong> ${data.projectedHoursPerDay} hrs/day</div>
+            <div><strong>Remaining After Save:</strong> <span class="${remainingAfterClass}">${data.remainingAfter} hrs</span> (${remainingHint})</div>
+            <div><strong>Assignment Days:</strong> ${daysLabel}</div>
+        `;
+    } catch (err) {
+        previewBox.textContent = "Unable to calculate preview.";
+    }
+}
+
+[
+    memberSelect,
+    startDateInput,
+    endDateInput,
+    totalHoursInput,
+    hoursPerWeekInput,
+    hoursPerDayInput,
+    ...assignmentDayInputs
+].forEach((el) => {
+    el.addEventListener("change", updateCapacityPreview);
+    el.addEventListener("input", updateCapacityPreview);
+});
+
+updateCapacityPreview();
 </script>

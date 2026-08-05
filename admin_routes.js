@@ -8,7 +8,7 @@ const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
-const ALLOWED_ROLES = new Set(["admin", "manager", "staff", "viewer", "client"]);
+const ALLOWED_ROLES = new Set(["admin", "manager", "staff", "contractor", "viewer", "client"]);
 const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAY_SET = new Set(WEEKDAY_ORDER);
 
@@ -518,6 +518,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
     const role = String(req.body.role || "").trim().toLowerCase();
     const weeklyCapacity = Number(req.body.weekly_capacity);
     const workingDays = normalizeWorkingDays(req.body.working_days);
+    const isContractor = role === "contractor";
 
     if (!name || !email || !password || !role) {
         return res.render("admin-add-user", {
@@ -543,7 +544,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
         });
     }
 
-    if (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0) {
+    if (!isContractor && (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0)) {
         return res.render("admin-add-user", {
             error: "Weekly capacity must be a positive number.",
             message: null,
@@ -570,6 +571,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
         }
 
         const hash = await bcrypt.hash(password, 10);
+        const normalizedWeeklyCapacity = isContractor ? 0 : weeklyCapacity;
         const inserted = await db.query(
             `INSERT INTO users (
                 email,
@@ -584,7 +586,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
             )
              VALUES ($1, $2, $3, $4, $5, $6, 0, NULL, FALSE)
              RETURNING id, email, role, name`,
-            [email, hash, role, name, weeklyCapacity, workingDays.join(",")]
+            [email, hash, role, name, normalizedWeeklyCapacity, workingDays.join(",")]
         );
 
         await logAuditEvent(req.session.user.id, "user_created", {
@@ -645,6 +647,7 @@ router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, re
     const password = String(req.body.password || "");
     const weeklyCapacity = Number(req.body.weekly_capacity);
     const workingDays = normalizeWorkingDays(req.body.working_days);
+    const isContractor = role === "contractor";
 
     if (!name || !email || !role) {
         return res.render("admin-edit-user", {
@@ -678,7 +681,7 @@ router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, re
         });
     }
 
-    if (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0) {
+    if (!isContractor && (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0)) {
         return res.render("admin-edit-user", {
             user: {
                 id: userId,
@@ -711,6 +714,7 @@ router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, re
     }
 
     try {
+        const normalizedWeeklyCapacity = isContractor ? 0 : weeklyCapacity;
         const existing = await db.query(
             "SELECT id FROM users WHERE LOWER(email) = $1 AND id <> $2",
             [email, userId]
@@ -760,7 +764,7 @@ router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, re
                      password_hash = $6,
                      updated_at = NOW()
                  WHERE id = $7`,
-                [name, email, role, weeklyCapacity, workingDays.join(","), hash, userId]
+                [name, email, role, normalizedWeeklyCapacity, workingDays.join(","), hash, userId]
             );
         } else {
             await db.query(
@@ -772,14 +776,14 @@ router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, re
                      working_days = $5,
                      updated_at = NOW()
                  WHERE id = $6`,
-                [name, email, role, weeklyCapacity, workingDays.join(","), userId]
+                [name, email, role, normalizedWeeklyCapacity, workingDays.join(","), userId]
             );
         }
 
         await logAuditEvent(req.session.user.id, "user_updated", {
             user_id: userId,
             role,
-            weekly_capacity: weeklyCapacity,
+            weekly_capacity: normalizedWeeklyCapacity,
             working_days: workingDays
         }, req.ip);
 
