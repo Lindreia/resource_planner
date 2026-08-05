@@ -7,7 +7,7 @@ const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./middleware/requireRole");
 
 const db = getConnection();
-const ALLOWED_ROLES = new Set(["admin", "manager", "staff"]);
+const ALLOWED_ROLES = new Set(["admin", "manager", "staff", "contractor", "viewer", "client"]);
 const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function normalizeWorkingDays(inputDays) {
@@ -220,6 +220,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
     const role = String(req.body.role || "").trim().toLowerCase();
     const weeklyCapacity = Number(req.body.weekly_capacity);
     const workingDays = normalizeWorkingDays(req.body.working_days);
+    const isContractor = role === "contractor";
 
     if (!name || !email || !password || !role) {
         return res.render("admin-add-user", {
@@ -245,7 +246,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
         });
     }
 
-    if (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0) {
+    if (!isContractor && (!Number.isFinite(weeklyCapacity) || weeklyCapacity <= 0)) {
         return res.render("admin-add-user", {
             error: "Weekly capacity must be a positive number.",
             message: null,
@@ -272,6 +273,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
         }
 
         const hash = await bcrypt.hash(password, 10);
+        const normalizedWeeklyCapacity = isContractor ? 0 : weeklyCapacity;
         const inserted = await db.query(
             `INSERT INTO users (
                 email,
@@ -286,7 +288,7 @@ router.post("/add-user", requireLogin, requireRole("admin"), async (req, res) =>
             )
              VALUES ($1, $2, $3, $4, $5, $6, 0, NULL, FALSE)
              RETURNING id, email, role, name`,
-            [email, hash, role, name, weeklyCapacity, workingDays.join(",")]
+            [email, hash, role, name, normalizedWeeklyCapacity, workingDays.join(",")]
         );
 
         await logAuditEvent(req.session.user.id, "user_created", {

@@ -70,6 +70,7 @@
                                     <form method="POST" action="/admin/change-role/<%= user.id %>" class="inline-form d-flex gap-2 align-items-center">
                                         <select name="role" class="form-select form-select-sm role-select">
                                             <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
+                                            <option value="contractor" <%= user.role === 'contractor' ? 'selected' : '' %>>Contractor</option>
                                             <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
                                             <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
                                         </select>

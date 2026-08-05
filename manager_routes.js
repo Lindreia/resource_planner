@@ -76,9 +76,65 @@ async function getAssignableManagers() {
     )).rows;
 }
 
+async function getAllocationViewData(week) {
+    const allocationsResult = await db.query(
+        `SELECT u.id, u.name AS user_name, u.weekly_capacity AS capacity,
+                COALESCE(SUM(a.hours_per_week), 0)::int AS total_hours
+         FROM users u
+         LEFT JOIN assignments a ON a.user_id = u.id
+         WHERE u.role IN ('staff','contractor')
+         GROUP BY u.id, u.name, u.weekly_capacity
+         ORDER BY u.name ASC`
+    );
+
+    const projectsByUser = await db.query(
+        `SELECT u.id AS user_id,
+                a.id AS assignment_id,
+                p.id AS project_id,
+                p.project_code,
+                p.project_name,
+                a.hours_per_week AS hours,
+                a.start_date,
+                a.end_date
+         FROM assignments a
+         JOIN users u ON u.id = a.user_id
+         JOIN projects p ON p.id = a.project_id
+         WHERE u.role IN ('staff','contractor')
+         ORDER BY u.name ASC, p.project_name ASC`
+    );
+
+    const projectsMap = new Map();
+    for (const row of projectsByUser.rows) {
+        if (!projectsMap.has(row.user_id)) {
+            projectsMap.set(row.user_id, []);
+        }
+
+        projectsMap.get(row.user_id).push({
+            assignment_id: row.assignment_id,
+            project_id: row.project_id,
+            project_code: row.project_code,
+            project_name: row.project_name,
+            hours: row.hours,
+            start_date: row.start_date,
+            end_date: row.end_date
+        });
+    }
+
+    return {
+        allocations: allocationsResult.rows.map(row => ({
+            user_id: row.id,
+            user_name: row.user_name,
+            total_hours: row.total_hours,
+            capacity: row.capacity,
+            projects: projectsMap.get(row.id) || []
+        })),
+        filters: { week: week || "" }
+    };
+}
+
 router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
-        const teamCountResult = await db.query("SELECT COUNT(*)::int AS count FROM users WHERE role = 'staff'");
+        const teamCountResult = await db.query("SELECT COUNT(*)::int AS count FROM users WHERE role IN ('staff','contractor')");
         const todayBookingsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE date = CURRENT_DATE");
         const pendingApprovalsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'pending'");
         const projectCountResult = await db.query("SELECT COUNT(*)::int AS count FROM projects");
@@ -113,7 +169,7 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
 router.get("/team", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         const team = (await db.query(
-            "SELECT id, name, email, role FROM users WHERE role IN ('staff','manager','admin') ORDER BY name ASC"
+            "SELECT id, name, email, role FROM users WHERE role IN ('staff','contractor','manager','admin') ORDER BY name ASC"
         )).rows;
 
         renderManagerPage(req, res, "manager-team", { team });
@@ -411,7 +467,7 @@ router.get("/bookings", requireLogin, requireRole("admin", "manager"), async (re
         query += " ORDER BY b.date DESC, u.name ASC";
 
         const bookings = (await db.query(query, params)).rows;
-        const team = (await db.query("SELECT id, name FROM users WHERE role = 'staff' ORDER BY name ASC")).rows;
+        const team = (await db.query("SELECT id, name FROM users WHERE role IN ('staff','contractor') ORDER BY name ASC")).rows;
 
         renderManagerPage(req, res, "manager-bookings", {
             bookings,
@@ -629,47 +685,148 @@ router.get("/approvals", requireLogin, requireRole("admin", "manager"), async (r
     }
 });
 
-router.get("/allocation", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+router.get("/allocation/:id/edit", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
-        const allocationsResult = await db.query(
-            `SELECT u.id, u.name AS user_name, u.weekly_capacity AS capacity,
-                    COALESCE(SUM(a.hours_per_week), 0)::int AS total_hours
-             FROM users u
-             LEFT JOIN assignments a ON a.user_id = u.id
-             WHERE u.role = 'staff'
-             GROUP BY u.id, u.name, u.weekly_capacity
-             ORDER BY u.name ASC`
-        );
+        const assignmentId = Number(req.params.id);
+        if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+            return res.status(400).send("Invalid allocation id");
+        }
 
-        const projectsByUser = await db.query(
-            `SELECT u.id AS user_id, p.project_name, a.hours_per_week AS hours
+        const assignmentResult = await db.query(
+            `SELECT a.id, a.user_id, a.project_id, a.start_date, a.end_date, a.hours_per_week,
+                    u.name AS user_name,
+                    p.project_code,
+                    p.project_name
              FROM assignments a
              JOIN users u ON u.id = a.user_id
              JOIN projects p ON p.id = a.project_id
-             WHERE u.role = 'staff'
-             ORDER BY u.name ASC, p.project_name ASC`
+             WHERE a.id = $1`,
+            [assignmentId]
         );
 
-        const projectsMap = new Map();
-        for (const row of projectsByUser.rows) {
-            if (!projectsMap.has(row.user_id)) {
-                projectsMap.set(row.user_id, []);
-            }
-            projectsMap.get(row.user_id).push({ project_name: row.project_name, hours: row.hours });
+        if (assignmentResult.rows.length === 0) {
+            return res.status(404).send("Allocation not found");
         }
 
-        const allocations = allocationsResult.rows.map(row => ({
-            user_name: row.user_name,
-            total_hours: row.total_hours,
-            capacity: row.capacity,
-            projects: projectsMap.get(row.id) || []
-        }));
+        const teamMembers = (await db.query(
+            "SELECT id, name FROM users WHERE role IN ('staff','contractor') ORDER BY name ASC"
+        )).rows;
+        const projects = (await db.query(
+            "SELECT id, project_code, project_name FROM projects ORDER BY project_code ASC"
+        )).rows;
+
+        return renderManagerPage(req, res, "manager-allocation-edit", {
+            assignment: assignmentResult.rows[0],
+            teamMembers,
+            projects,
+            message: req.query.message || null,
+            error: req.query.error || null
+        });
+    } catch (err) {
+        console.error("Allocation edit form error:", err);
+        return res.status(500).send("Failed to load allocation edit page");
+    }
+});
+
+router.post("/allocation/:id/edit", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+    try {
+        const assignmentId = Number(req.params.id);
+        const userId = Number(req.body.user_id);
+        const projectId = Number(req.body.project_id);
+        const startDate = String(req.body.start_date || "").trim();
+        const endDate = String(req.body.end_date || "").trim();
+        const hoursPerWeek = Number(req.body.hours_per_week);
+
+        if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+            return res.redirect(withAdminView(req, "/manager/allocation?error=Invalid allocation id"));
+        }
+
+        if (!Number.isInteger(userId) || userId <= 0 || !Number.isInteger(projectId) || projectId <= 0) {
+            return res.redirect(withAdminView(req, `/manager/allocation/${assignmentId}/edit?error=Select a valid team member and project`));
+        }
+
+        if (!startDate || !endDate) {
+            return res.redirect(withAdminView(req, `/manager/allocation/${assignmentId}/edit?error=Start and end date are required`));
+        }
+
+        if (endDate < startDate) {
+            return res.redirect(withAdminView(req, `/manager/allocation/${assignmentId}/edit?error=End date cannot be before start date`));
+        }
+
+        if (!Number.isFinite(hoursPerWeek) || hoursPerWeek <= 0) {
+            return res.redirect(withAdminView(req, `/manager/allocation/${assignmentId}/edit?error=Hours per week must be greater than zero`));
+        }
+
+        const memberExists = await db.query(
+            "SELECT id FROM users WHERE id = $1 AND role IN ('staff','contractor')",
+            [userId]
+        );
+        if (memberExists.rows.length === 0) {
+            return res.redirect(withAdminView(req, `/manager/allocation/${assignmentId}/edit?error=Selected team member was not found`));
+        }
+
+        const projectExists = await db.query(
+            "SELECT id FROM projects WHERE id = $1",
+            [projectId]
+        );
+        if (projectExists.rows.length === 0) {
+            return res.redirect(withAdminView(req, `/manager/allocation/${assignmentId}/edit?error=Selected project was not found`));
+        }
+
+        const updateResult = await db.query(
+            `UPDATE assignments
+             SET user_id = $1,
+                 project_id = $2,
+                 start_date = $3,
+                 end_date = $4,
+                 hours_per_week = $5,
+                 hours_per_day = CASE
+                    WHEN COALESCE(work_days, 0) > 0 THEN ROUND(($5::numeric / work_days)::numeric, 2)
+                    ELSE hours_per_day
+                 END,
+                 updated_at = NOW()
+             WHERE id = $6`,
+            [userId, projectId, startDate, endDate, hoursPerWeek, assignmentId]
+        );
+
+        if (updateResult.rowCount === 0) {
+            return res.redirect(withAdminView(req, "/manager/allocation?error=Allocation not found"));
+        }
+
+        return res.redirect(withAdminView(req, "/manager/allocation?message=Allocation updated successfully"));
+    } catch (err) {
+        console.error("Allocation update error:", err);
+        return res.redirect(withAdminView(req, `/manager/allocation/${req.params.id}/edit?error=Failed to update allocation`));
+    }
+});
+
+router.post("/allocation/:id/delete", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+    try {
+        const assignmentId = Number(req.params.id);
+        if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+            return res.redirect(withAdminView(req, "/manager/allocation?error=Invalid allocation id"));
+        }
+
+        const deleteResult = await db.query("DELETE FROM assignments WHERE id = $1", [assignmentId]);
+        if (deleteResult.rowCount === 0) {
+            return res.redirect(withAdminView(req, "/manager/allocation?error=Allocation not found"));
+        }
+
+        return res.redirect(withAdminView(req, "/manager/allocation?message=Allocation removed successfully"));
+    } catch (err) {
+        console.error("Allocation delete error:", err);
+        return res.redirect(withAdminView(req, "/manager/allocation?error=Failed to remove allocation"));
+    }
+});
+
+router.get("/allocation", requireLogin, requireRole("admin", "manager"), async (req, res) => {
+    try {
+        const viewData = await getAllocationViewData(req.query.week || "");
 
         renderManagerPage(req, res, "manager-allocation", {
-            allocations,
-            filters: { week: req.query.week || "" },
-            error: null,
-            message: null
+            ...viewData,
+            error: req.query.error || null,
+            message: req.query.message || null
         });
     } catch (err) {
         console.error("Manager allocation error:", err);

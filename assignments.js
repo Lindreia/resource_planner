@@ -4,6 +4,15 @@ const { getConnection } = require("./database");
 
 const db = getConnection();
 const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_TO_INDEX = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7
+};
 
 function parseWorkingDays(value) {
     if (!value) return [];
@@ -12,6 +21,18 @@ function parseWorkingDays(value) {
         .split(",")
         .map((v) => v.trim())
         .filter((d) => WEEKDAY_ORDER.includes(d));
+}
+
+function normalizeSubmittedDays(value) {
+    if (!value) return [];
+
+    const source = Array.isArray(value)
+        ? value
+        : String(value)
+            .split(",")
+            .map((v) => v.trim());
+
+    return WEEKDAY_ORDER.filter((day) => source.includes(day));
 }
 
 function toNumber(value) {
@@ -26,6 +47,107 @@ function getEffectiveDailyHours(row) {
     const weekly = toNumber(row.hours_per_week);
     const dayCount = Math.max(toNumber(row.work_days), 1);
     return weekly > 0 ? weekly / dayCount : 0;
+}
+
+function countAssignmentDaysBetween(startDate, endDate, assignmentDays) {
+    const allowedSet = new Set(assignmentDays.map((d) => WEEKDAY_TO_INDEX[d]).filter(Boolean));
+    if (allowedSet.size === 0) return 0;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    let count = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const jsDay = d.getDay();
+        const isoDay = jsDay === 0 ? 7 : jsDay;
+        if (allowedSet.has(isoDay)) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function round2(value) {
+    return Number((Number(value) || 0).toFixed(2));
+}
+
+async function buildCapacityPreview(teamMemberId, startDate, endDate, requestedDaysRaw, totalHoursInput, hoursPerWeekInput, hoursPerDayInput) {
+    const result = await db.query(
+        `SELECT
+            u.role,
+            u.weekly_capacity,
+            u.working_days,
+            a.hours_per_day,
+            a.hours_per_week,
+            a.work_days
+         FROM users u
+         LEFT JOIN assignments a
+           ON a.user_id = u.id
+          AND NOT ($2 > a.end_date OR $3 < a.start_date)
+         WHERE u.id = $1`,
+        [teamMemberId, endDate, startDate]
+    );
+
+    if (result.rows.length === 0) {
+        return null;
+    }
+
+    const role = String(result.rows[0].role || "").toLowerCase();
+    const allowedDays = result.rows[0].working_days
+        ? parseWorkingDays(result.rows[0].working_days)
+        : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    const requestedDays = requestedDaysRaw.filter((day) => allowedDays.includes(day));
+    const effectiveDays = requestedDays.length > 0 ? requestedDays : allowedDays;
+
+    const weeklyCapacity = toNumber(result.rows[0].weekly_capacity) || 40;
+    const currentAllocated = result.rows.reduce((sum, row) => {
+        const existingDays = parseWorkingDays(row.working_days).length || 5;
+        return sum + (getEffectiveDailyHours(row) * existingDays);
+    }, 0);
+
+    let projectedWeeklyHours = 0;
+    let projectedHoursPerDay = 0;
+
+    if (Number.isFinite(totalHoursInput) && totalHoursInput > 0) {
+        const assignmentDayCount = countAssignmentDaysBetween(startDate, endDate, effectiveDays);
+        if (assignmentDayCount > 0) {
+            projectedHoursPerDay = totalHoursInput / assignmentDayCount;
+            projectedWeeklyHours = projectedHoursPerDay * effectiveDays.length;
+        }
+    } else if (Number.isFinite(hoursPerWeekInput) && hoursPerWeekInput > 0) {
+        projectedWeeklyHours = hoursPerWeekInput;
+        projectedHoursPerDay = projectedWeeklyHours / Math.max(effectiveDays.length, 1);
+    } else if (Number.isFinite(hoursPerDayInput) && hoursPerDayInput > 0) {
+        projectedHoursPerDay = hoursPerDayInput;
+        projectedWeeklyHours = projectedHoursPerDay * effectiveDays.length;
+    }
+
+    if (role === "contractor") {
+        return {
+            isContractor: true,
+            weeklyCapacity: null,
+            currentAllocated: round2(currentAllocated),
+            remainingBefore: null,
+            projectedWeeklyHours: round2(projectedWeeklyHours),
+            projectedHoursPerDay: round2(projectedHoursPerDay),
+            remainingAfter: null,
+            effectiveDays
+        };
+    }
+
+    return {
+        isContractor: false,
+        weeklyCapacity: round2(weeklyCapacity),
+        currentAllocated: round2(currentAllocated),
+        remainingBefore: round2(weeklyCapacity - currentAllocated),
+        projectedWeeklyHours: round2(projectedWeeklyHours),
+        projectedHoursPerDay: round2(projectedHoursPerDay),
+        remainingAfter: round2(weeklyCapacity - currentAllocated - projectedWeeklyHours),
+        effectiveDays
+    };
 }
 
 // ---------------------------------------------------------
@@ -62,6 +184,7 @@ async function hasTimeConflict(teamMemberId, startDate, endDate, startTime, endT
 async function exceedsWeeklyCapacity(teamMemberId, startDate, endDate, hoursPerDay, workingDaysCount) {
     const query = `
         SELECT
+            u.role,
             u.weekly_capacity,
             u.working_days,
             a.hours_per_day,
@@ -77,6 +200,11 @@ async function exceedsWeeklyCapacity(teamMemberId, startDate, endDate, hoursPerD
     const result = await db.query(query, [teamMemberId, endDate, startDate]);
     if (result.rows.length === 0) {
         return { exceeded: false, total: 0, weeklyCapacity: 40 };
+    }
+
+    // Contractors are flexible capacity resources and are not capped to a fixed weekly limit.
+    if (String(result.rows[0].role || "").toLowerCase() === "contractor") {
+        return { exceeded: false, total: 0, weeklyCapacity: null };
     }
 
     const weeklyCapacity = toNumber(result.rows[0].weekly_capacity) || 40;
@@ -106,7 +234,9 @@ router.post("/add", async (req, res) => {
         const startTime = req.body.start_time;
         const endTime = req.body.end_time;
 
-        const hoursPerDay = Number(req.body.hours_per_day ?? req.body.hours_per_week);
+        const hoursPerDayInput = Number(req.body.hours_per_day);
+        const hoursPerWeekInput = Number(req.body.hours_per_week);
+        const totalHoursInput = Number(req.body.total_hours);
 
         if (!teamMemberId || !projectId) {
             return res.status(400).json({ error: "Invalid team member or project" });
@@ -118,10 +248,6 @@ router.post("/add", async (req, res) => {
 
         if (endTime <= startTime) {
             return res.status(400).json({ error: "End time must be after start time" });
-        }
-
-        if (!Number.isFinite(hoursPerDay) || hoursPerDay <= 0) {
-            return res.status(400).json({ error: "Allocated hours per day must be a positive number" });
         }
 
         let userResult;
@@ -148,7 +274,41 @@ router.post("/add", async (req, res) => {
         const allowedDays = userResult.rows[0].working_days
             ? parseWorkingDays(userResult.rows[0].working_days)
             : ["Mon", "Tue", "Wed", "Thu", "Fri"];
-        const weeklyHours = hoursPerDay * Math.max(allowedDays.length, 1);
+        const requestedDaysRaw = normalizeSubmittedDays(req.body.assignment_days);
+        if (requestedDaysRaw.length === 0) {
+            return res.status(400).json({ error: "Select at least one assignment day." });
+        }
+        const requestedDays = requestedDaysRaw.filter((day) => allowedDays.includes(day));
+        const effectiveDays = requestedDays.length > 0 ? requestedDays : allowedDays;
+
+        if (effectiveDays.length === 0) {
+            return res.status(400).json({ error: "Selected team member has no working days configured." });
+        }
+
+        let effectiveWeeklyHours = 0;
+        let effectiveHoursPerDay = 0;
+
+        if (Number.isFinite(totalHoursInput) && totalHoursInput > 0) {
+            const assignmentDayCount = countAssignmentDaysBetween(startDate, endDate, effectiveDays);
+            if (assignmentDayCount <= 0) {
+                return res.status(400).json({ error: "No assignment days fall inside the selected date range." });
+            }
+
+            effectiveHoursPerDay = totalHoursInput / assignmentDayCount;
+            effectiveWeeklyHours = effectiveHoursPerDay * effectiveDays.length;
+        } else if (Number.isFinite(hoursPerWeekInput) && hoursPerWeekInput > 0) {
+            effectiveWeeklyHours = hoursPerWeekInput;
+            effectiveHoursPerDay = effectiveWeeklyHours / effectiveDays.length;
+        } else if (Number.isFinite(hoursPerDayInput) && hoursPerDayInput > 0) {
+            effectiveHoursPerDay = hoursPerDayInput;
+            effectiveWeeklyHours = effectiveHoursPerDay * effectiveDays.length;
+        } else {
+            return res.status(400).json({ error: "Enter total hours, hours per week, or hours per day." });
+        }
+
+        if (!Number.isFinite(effectiveWeeklyHours) || effectiveWeeklyHours <= 0 || !Number.isFinite(effectiveHoursPerDay) || effectiveHoursPerDay <= 0) {
+            return res.status(400).json({ error: "Hours must be a positive number." });
+        }
 
         // TIME CONFLICTS
         const conflicts = await hasTimeConflict(
@@ -169,8 +329,8 @@ router.post("/add", async (req, res) => {
                 teamMemberId,
                 startDate,
                 endDate,
-                hoursPerDay,
-                allowedDays.length
+                effectiveHoursPerDay,
+                effectiveDays.length
             );
 
             if (exceeded) {
@@ -186,12 +346,13 @@ router.post("/add", async (req, res) => {
                 start_date,
                 end_date,
                 work_days,
+                assignment_days,
                 hours_per_day,
                 start_time,
                 end_time,
                 hours_per_week
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `;
 
         await db.query(insertQuery, [
@@ -199,11 +360,12 @@ router.post("/add", async (req, res) => {
             projectId,
             startDate,
             endDate,
-            allowedDays.length,
-            hoursPerDay,
+            effectiveDays.length,
+            effectiveDays.join(","),
+            Number(effectiveHoursPerDay.toFixed(4)),
             startTime,
             endTime,
-            weeklyHours
+            Number(effectiveWeeklyHours.toFixed(4))
         ]);
 
         return res.json({ success: true });
@@ -214,15 +376,55 @@ router.post("/add", async (req, res) => {
     }
 });
 
+router.get("/preview", async (req, res) => {
+    try {
+        const teamMemberId = Number(req.query.team_member);
+        const startDate = String(req.query.start_date || "");
+        const endDate = String(req.query.end_date || "");
+
+        if (!Number.isInteger(teamMemberId) || teamMemberId <= 0) {
+            return res.status(400).json({ error: "Invalid team member." });
+        }
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: "Start and end date are required." });
+        }
+
+        const requestedDaysRaw = normalizeSubmittedDays(req.query.assignment_days);
+        const totalHoursInput = Number(req.query.total_hours);
+        const hoursPerWeekInput = Number(req.query.hours_per_week);
+        const hoursPerDayInput = Number(req.query.hours_per_day);
+
+        const preview = await buildCapacityPreview(
+            teamMemberId,
+            startDate,
+            endDate,
+            requestedDaysRaw,
+            totalHoursInput,
+            hoursPerWeekInput,
+            hoursPerDayInput
+        );
+
+        if (!preview) {
+            return res.status(404).json({ error: "Team member not found." });
+        }
+
+        return res.json(preview);
+    } catch (err) {
+        console.error("Assignment preview error:", err);
+        return res.status(500).json({ error: "Failed to build assignment preview." });
+    }
+});
+
 // ---------------------------------------------------------
 // GET: FORM PAGE (POSTGRES)
 // ---------------------------------------------------------
 router.get("/add", async (req, res) => {
     try {
         const teamMembersQuery = `
-            SELECT id, name
+            SELECT id, name, weekly_capacity, working_days
             FROM users
-            WHERE role IN ('staff', 'manager', 'admin')
+            WHERE role IN ('staff', 'contractor', 'manager', 'admin')
             ORDER BY name
         `;
 

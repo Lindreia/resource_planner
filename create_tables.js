@@ -9,7 +9,7 @@ async function createTables() {
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
-                role TEXT NOT NULL CHECK (role IN ('admin','manager','staff','viewer','client')),
+                role TEXT NOT NULL CHECK (role IN ('admin','manager','staff','contractor','viewer','client')),
                 weekly_capacity NUMERIC(6,2) NOT NULL DEFAULT 40,
                 working_days TEXT NOT NULL DEFAULT 'Mon,Tue,Wed,Thu,Fri',
                 password_hash TEXT NOT NULL,
@@ -31,6 +31,28 @@ async function createTables() {
         await db.query(`
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS working_days TEXT NOT NULL DEFAULT 'Mon,Tue,Wed,Thu,Fri';
+        `);
+
+        await db.query(`
+            DO $$
+            DECLARE
+                constraint_name TEXT;
+            BEGIN
+                FOR constraint_name IN
+                    SELECT c.conname
+                    FROM pg_constraint c
+                    JOIN pg_class t ON t.oid = c.conrelid
+                    WHERE t.relname = 'users'
+                      AND c.contype = 'c'
+                      AND pg_get_constraintdef(c.oid) ILIKE '%role%'
+                LOOP
+                    EXECUTE format('ALTER TABLE users DROP CONSTRAINT %I', constraint_name);
+                END LOOP;
+
+                ALTER TABLE users
+                ADD CONSTRAINT users_role_check
+                CHECK (role IN ('admin','manager','staff','contractor','viewer','client'));
+            END $$;
         `);
         console.log("Users table ensured.");
 
@@ -114,6 +136,11 @@ async function createTables() {
         await db.query(`
             ALTER TABLE assignments
             ADD COLUMN IF NOT EXISTS hours_per_day NUMERIC(6,2);
+        `);
+
+        await db.query(`
+            ALTER TABLE assignments
+            ADD COLUMN IF NOT EXISTS assignment_days TEXT;
         `);
 
         await db.query(`

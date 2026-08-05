@@ -47,6 +47,7 @@
                 <label>Role</label>
                 <select name="role" class="role-select" required>
                     <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
+                    <option value="contractor" <%= user.role === 'contractor' ? 'selected' : '' %>>Contractor</option>
                     <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
                     <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
                 </select>
