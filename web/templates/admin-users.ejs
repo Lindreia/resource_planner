@@ -85,6 +85,7 @@
                                         <select name="role" class="form-select form-select-sm role-select">
                                             <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
                                             <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+                                            <option value="creator" <%= user.role === 'creator' ? 'selected' : '' %>>Creator</option>
                                             <option value="viewer" <%= user.role === 'viewer' ? 'selected' : '' %>>Viewer</option>
                                             <option value="client" <%= user.role === 'client' ? 'selected' : '' %>>External Client</option>
                                             <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
@@ -98,6 +99,7 @@
                                     </form>
 
                                     <a href="/admin/edit-user/<%= user.id %>" class="btn btn-sm btn-outline-info">Edit Details</a>
+                                    <a href="/admin/delete-user/<%= user.id %>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this user? This action cannot be undone.');">Delete</a>
 
                                     <% if (user.is_active === false) { %>
                                         <form method="POST" action="/admin/reactivate-user/<%= user.id %>" class="inline-form">

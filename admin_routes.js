@@ -8,7 +8,7 @@ const { requireLogin } = require("./web/authMiddleware");
 const { requireRole } = require("./web/authRole");
 
 const db = getConnection();
-const ALLOWED_ROLES = new Set(["admin", "manager", "staff", "contractor", "viewer", "client"]);
+const ALLOWED_ROLES = new Set(["admin", "manager", "creator", "staff", "contractor", "viewer", "client"]);
 const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAY_SET = new Set(WEEKDAY_ORDER);
 
@@ -215,6 +215,131 @@ router.post("/notifications/read-all", requireLogin, requireRole("admin"), async
     } catch (err) {
         console.error("Mark all notifications read error:", err);
         res.redirect("/admin/dashboard?error=Failed to update notifications");
+    }
+});
+
+// ---------------------------------------------------------
+// MESSAGING CENTRE
+// ---------------------------------------------------------
+router.get("/messages", requireLogin, requireRole("admin", "creator"), async (req, res) => {
+    try {
+        const users = await db.query(
+            "SELECT id, name, email, role FROM users WHERE is_active = TRUE ORDER BY name"
+        );
+        const sentMessages = await db.query(`
+            SELECT n.id, n.payload, n.read_at, n.created_at,
+                   u.name AS recipient_name, u.role AS recipient_role
+            FROM notifications n
+            JOIN users u ON u.id = n.user_id
+            WHERE n.type = 'admin_message'
+            ORDER BY n.created_at DESC
+            LIMIT 50
+        `);
+
+        return res.render("admin-messages", {
+            users: users.rows,
+            sentMessages: sentMessages.rows,
+            roles: Array.from(ALLOWED_ROLES).filter(role => role !== "admin"),
+            canDeleteAny: String(req.session.user.role || "").toLowerCase() === "admin",
+            currentUserId: req.session.user.id,
+            active_page: "admin_messages",
+            message: req.query.message || null,
+            error: req.query.error || null
+        });
+    } catch (err) {
+        console.error("Messaging centre error:", err);
+        return res.status(500).send("Failed to load messaging centre");
+    }
+});
+
+router.post("/messages", requireLogin, requireRole("admin", "creator"), async (req, res) => {
+    const recipient = String(req.body.recipient || "").trim().toLowerCase();
+    const subject = String(req.body.subject || "").trim();
+    const body = String(req.body.body || "").trim();
+
+    if (!recipient || !subject || !body) {
+        return res.redirect("/admin/messages?error=Recipient, subject, and message are required");
+    }
+    if (subject.length > 120 || body.length > 5000) {
+        return res.redirect("/admin/messages?error=Subject or message is too long");
+    }
+
+    const payload = JSON.stringify({
+        subject,
+        body,
+        sender_id: req.session.user.id,
+        sender_name: req.session.user.name
+    });
+
+    try {
+        let result;
+        if (recipient === "all") {
+            result = await db.query(
+                `INSERT INTO notifications (user_id, type, payload)
+                 SELECT id, 'admin_message', $1::jsonb FROM users WHERE is_active = TRUE`,
+                [payload]
+            );
+        } else if (recipient.startsWith("role:")) {
+            const role = recipient.slice(5);
+            if (!ALLOWED_ROLES.has(role)) {
+                return res.redirect("/admin/messages?error=Invalid recipient role");
+            }
+            result = await db.query(
+                `INSERT INTO notifications (user_id, type, payload)
+                 SELECT id, 'admin_message', $1::jsonb
+                 FROM users WHERE is_active = TRUE AND role = $2`,
+                [payload, role]
+            );
+        } else if (recipient.startsWith("user:")) {
+            const userId = Number(recipient.slice(5));
+            if (!Number.isInteger(userId)) {
+                return res.redirect("/admin/messages?error=Invalid recipient");
+            }
+            result = await db.query(
+                `INSERT INTO notifications (user_id, type, payload)
+                 SELECT id, 'admin_message', $1::jsonb
+                 FROM users WHERE is_active = TRUE AND id = $2`,
+                [payload, userId]
+            );
+        } else {
+            return res.redirect("/admin/messages?error=Invalid recipient");
+        }
+
+        if (result.rowCount === 0) {
+            return res.redirect("/admin/messages?error=No active recipients matched");
+        }
+
+        await logAuditEvent(req.session.user.id, "admin_message_sent", {
+            recipient,
+            subject,
+            recipient_count: result.rowCount
+        }, req.ip);
+        return res.redirect(`/admin/messages?message=Message sent to ${result.rowCount} recipient(s)`);
+    } catch (err) {
+        console.error("Send admin message error:", err);
+        return res.redirect("/admin/messages?error=Failed to send message");
+    }
+});
+
+router.post("/messages/:id/delete", requireLogin, requireRole("admin", "creator"), async (req, res) => {
+    try {
+        const role = String(req.session.user.role || "").toLowerCase();
+        const result = role === "admin"
+            ? await db.query("DELETE FROM notifications WHERE id = $1 AND type = 'admin_message'", [req.params.id])
+            : await db.query(
+                `DELETE FROM notifications
+                 WHERE id = $1 AND type = 'admin_message'
+                   AND payload->>'sender_id' = $2`,
+                [req.params.id, String(req.session.user.id)]
+            );
+
+        if (result.rowCount === 0) {
+            return res.redirect("/admin/messages?error=Message not found or cannot be deleted");
+        }
+        return res.redirect("/admin/messages?message=Message deleted");
+    } catch (err) {
+        console.error("Delete admin message error:", err);
+        return res.redirect("/admin/messages?error=Failed to delete message");
     }
 });
 
@@ -614,6 +739,10 @@ router.post("/users/add", requireLogin, requireRole("admin"), async (req, res) =
 router.get("/edit-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
     const userId = Number(req.params.id);
 
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return redirectUsers(res, null, "Invalid user id");
+    }
+
     try {
         const result = await db.query(
             "SELECT id, name, email, role, weekly_capacity, working_days FROM users WHERE id = $1",
@@ -641,6 +770,11 @@ router.get("/edit-user/:id", requireLogin, requireRole("admin"), async (req, res
 
 router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
     const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return redirectUsers(res, null, "Invalid user id");
+    }
+
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
     const role = String(req.body.role || "").trim().toLowerCase();
@@ -807,8 +941,12 @@ router.post("/edit-user/:id", requireLogin, requireRole("admin"), async (req, re
 });
 
 router.post("/change-role/:id", requireLogin, requireRole("admin"), async (req, res) => {
-    const userId = req.params.id;
+    const userId = Number(req.params.id);
     const role = String(req.body.role || "").trim().toLowerCase();
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return redirectUsers(res, null, "Invalid user id");
+    }
 
     if (!ALLOWED_ROLES.has(role)) {
         return redirectUsers(res, null, "Invalid role selected");
@@ -821,6 +959,72 @@ router.post("/change-role/:id", requireLogin, requireRole("admin"), async (req, 
     } catch (err) {
         console.error("Change role error:", err);
         return redirectUsers(res, null, "Failed to update role");
+    }
+});
+
+router.get("/delete-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return redirectUsers(res, null, "Invalid user id");
+    }
+
+    try {
+        const result = await db.query(
+            "SELECT id, name, email, role FROM users WHERE id = $1",
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return redirectUsers(res, null, "User not found");
+        }
+
+        return res.render("admin-delete-user", {
+            user: result.rows[0],
+            error: null,
+            message: null,
+            active_page: "admin_users"
+        });
+    } catch (err) {
+        console.error("Delete user page error:", err);
+        return redirectUsers(res, null, "Failed to load delete user page");
+    }
+});
+
+router.post("/delete-user/:id", requireLogin, requireRole("admin"), async (req, res) => {
+    const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return redirectUsers(res, null, "Invalid user id");
+    }
+
+    if (userId === Number(req.session.user.id)) {
+        return redirectUsers(res, null, "You cannot delete your own account");
+    }
+
+    try {
+        const userResult = await db.query(
+            "SELECT id, name, email FROM users WHERE id = $1",
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return redirectUsers(res, null, "User not found");
+        }
+
+        const user = userResult.rows[0];
+        await db.query("DELETE FROM users WHERE id = $1", [userId]);
+
+        await logAuditEvent(req.session.user.id, "user_deleted", {
+            user_id: userId,
+            name: user.name,
+            email: user.email
+        }, req.ip);
+
+        return redirectUsers(res, `User ${user.name} deleted`, null);
+    } catch (err) {
+        console.error("Delete user error:", err);
+        return redirectUsers(res, null, "Failed to delete user");
     }
 });
 

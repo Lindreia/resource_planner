@@ -172,7 +172,43 @@ router.get("/team", requireLogin, requireRole("admin", "manager"), async (req, r
             "SELECT id, name, email, role FROM users WHERE role IN ('staff','contractor','manager','admin') ORDER BY name ASC"
         )).rows;
 
-        renderManagerPage(req, res, "manager-team", { team });
+        const memberIds = team.map(row => row.id);
+        const assignmentsByMember = new Map();
+
+        if (memberIds.length > 0) {
+            const assignmentRows = (await db.query(
+                `SELECT a.id, a.user_id, a.project_id, a.start_date, a.end_date, a.hours_per_week,
+                        p.project_code, p.project_name
+                 FROM assignments a
+                 JOIN projects p ON p.id = a.project_id
+                 WHERE a.user_id = ANY($1::int[])
+                 ORDER BY a.user_id ASC, a.start_date DESC, p.project_name ASC`,
+                [memberIds]
+            )).rows;
+
+            assignmentRows.forEach((row) => {
+                if (!assignmentsByMember.has(Number(row.user_id))) {
+                    assignmentsByMember.set(Number(row.user_id), []);
+                }
+                assignmentsByMember.get(Number(row.user_id)).push({
+                    id: row.id,
+                    project_code: row.project_code,
+                    project_name: row.project_name,
+                    start_date: row.start_date,
+                    end_date: row.end_date,
+                    hours_per_week: row.hours_per_week
+                });
+            });
+        }
+
+        renderManagerPage(req, res, "manager-team", {
+            team: team.map(member => ({
+                ...member,
+                assignments: assignmentsByMember.get(Number(member.id)) || []
+            })),
+            error: req.query.error || null,
+            message: req.query.message || null
+        });
     } catch (err) {
         console.error("Manager team error:", err);
         res.status(500).send("Failed to load team page");
@@ -214,10 +250,21 @@ router.get("/team/:id", requireLogin, requireRole("admin", "manager"), async (re
             [member.id]
         )).rows;
 
+        const assignments = (await db.query(
+            `SELECT a.id, a.project_id, a.start_date, a.end_date, a.hours_per_week,
+                    p.project_code, p.project_name
+             FROM assignments a
+             JOIN projects p ON p.id = a.project_id
+             WHERE a.user_id = $1
+             ORDER BY a.start_date DESC, p.project_name ASC`,
+            [member.id]
+        )).rows;
+
         renderManagerPage(req, res, "manager-team-detail", {
             member,
             availability,
             bookings,
+            assignments,
             error: null,
             message: null
         });

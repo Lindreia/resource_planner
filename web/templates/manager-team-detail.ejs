@@ -25,6 +25,7 @@
             <a href="/manager/availability" class="nav-link">📅 <span class="nav-text">Availability</span></a>
             <a href="/manager/allocation" class="nav-link">📦 <span class="nav-text">Allocation</span></a>
             <a href="/manager/team" class="nav-link active">👥 <span class="nav-text">Team</span></a>
+            <a href="/control-panel" class="nav-link">&#9881; <span class="nav-text">Control Panel</span></a>
             <a href="/logout" class="nav-link logout-link">Logout</a>
         </nav>
     </aside>
@@ -73,6 +74,40 @@
                     <tr>
                         <td><%= a.date %></td>
                         <td><%= a.status %></td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } %>
+
+        <!-- Allocation Entries Section -->
+        <h3 class="section-title">Allocation Entries</h3>
+
+        <% if (assignments.length === 0) { %>
+            <div class="info-text">No allocation entries found.</div>
+        <% } else { %>
+            <table class="user-table">
+                <tr>
+                    <th>Project</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Hours / Week</th>
+                    <th>Actions</th>
+                </tr>
+
+                <% assignments.forEach(a => { %>
+                    <tr>
+                        <td><%= a.project_code %> - <%= a.project_name %></td>
+                        <td><%= a.start_date %></td>
+                        <td><%= a.end_date || 'Ongoing' %></td>
+                        <td><%= a.hours_per_week %></td>
+                        <td>
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <a class="login-btn small-btn" href="/manager/allocation/<%= a.id %>/edit<%= adminSuffix %>">Edit</a>
+                                <form method="POST" action="/manager/allocation/<%= a.id %>/delete<%= adminSuffix %>" class="inline-form" onsubmit="return confirm('Delete this allocation entry?');">
+                                    <button class="login-btn small-btn warn-btn" type="submit">Delete</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                 <% }) %>
             </table>
