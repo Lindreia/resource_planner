@@ -44,13 +44,27 @@
             <div class="dashboard-card">
                 <div class="dashboard-card-title">Team Detail</div>
                 <table class="dashboard-mini-table w-100">
-                    <tr><th>Name</th><th>Allocated</th><th>Capacity</th><th>Util %</th></tr>
+                    <tr><th>Name</th><th>Allocated</th><th>Capacity</th><th>Util %</th><th>Actions</th></tr>
                     <% team.forEach(t => { %>
                         <tr>
                             <td><%= t.name %></td>
                             <td><%= t.allocated %></td>
                             <td><%= t.capacity %></td>
                             <td><%= t.util %>%</td>
+                            <td>
+                                <% if (!t.assignments || t.assignments.length === 0) { %>
+                                    <span class="info-text">None</span>
+                                <% } else { %>
+                                    <% t.assignments.forEach(a => { %>
+                                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                                            <a class="login-btn small-btn" href="/manager/allocation/<%= a.id %>/edit">Edit</a>
+                                            <form method="POST" action="/manager/allocation/<%= a.id %>/delete" class="inline-form" onsubmit="return confirm('Delete this allocation entry?');">
+                                                <button class="login-btn small-btn warn-btn" type="submit">Delete</button>
+                                            </form>
+                                        </div>
+                                    <% }) %>
+                                <% } %>
+                            </td>
                         </tr>
                     <% }) %>
                 </table>
