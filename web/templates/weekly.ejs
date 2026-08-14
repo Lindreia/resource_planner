@@ -57,8 +57,8 @@
                                 <% } else { %>
                                     <% t.assignments.forEach(a => { %>
                                         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-                                            <a class="login-btn small-btn" href="/manager/allocation/<%= a.id %>/edit">Edit</a>
-                                            <form method="POST" action="/manager/allocation/<%= a.id %>/delete" class="inline-form" onsubmit="return confirm('Delete this allocation entry?');">
+                                            <a class="login-btn small-btn" href="/manager/allocation/<%= a.id %>/edit<%= adminSuffix %>">Edit</a>
+                                            <form method="POST" action="/manager/allocation/<%= a.id %>/delete<%= adminSuffix %>" class="inline-form" onsubmit="return confirm('Delete this allocation entry?');">
                                                 <button class="login-btn small-btn warn-btn" type="submit">Delete</button>
                                             </form>
                                         </div>

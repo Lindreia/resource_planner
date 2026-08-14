@@ -458,6 +458,8 @@ router.get("/weekly", requireLogin, async (req, res) => {
             { label: "Overbooked", value: overbookedCount }
         ];
 
+        const isAdmin = (req.session?.user?.role || "").toLowerCase() === "admin";
+
         res.render("weekly", {
             user: req.session.user,
             week_label: `${startISO} -> ${endISO}`,
@@ -465,7 +467,9 @@ router.get("/weekly", requireLogin, async (req, res) => {
             next_week: offset + 1,
             stats_cards,
             team,
-            projects
+            projects,
+            isAdminView: isAdmin,
+            adminViewQuery: isAdmin ? "admin_view=1" : ""
         });
     } catch (err) {
         console.error("Weekly dashboard error:", err);
