@@ -22,7 +22,7 @@ test('control panel template exists', () => {
   assert.ok(fs.existsSync(filePath), 'control panel template is missing');
 });
 
-test('allocation view includes admins and managers in editable team list', () => {
-  assert.match(managerRoutesSource, /role IN \('staff','contractor','manager','admin'\)/,
-    'manager allocation queries should include admins and managers in the editable team list');
+test('allocation view includes all user types in editable team list', () => {
+  assert.match(managerRoutesSource, /ALL_USER_ROLES|role IN \$\{ALL_USER_ROLES\}/,
+    'manager allocation queries should use the all-role user list in the editable team list');
 });

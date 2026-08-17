@@ -44,6 +44,8 @@ function renderManagerPage(req, res, view, data) {
     });
 }
 
+const ALL_USER_ROLES = "('admin','manager','creator','staff','contractor','viewer','client')";
+
 function buildManagerStats(teamCount, todayBookings, pendingApprovals, projectCount) {
     return {
         teamCount,
@@ -82,7 +84,7 @@ async function getAllocationViewData(week) {
                 COALESCE(SUM(a.hours_per_week), 0)::int AS total_hours
          FROM users u
          LEFT JOIN assignments a ON a.user_id = u.id
-         WHERE u.role IN ('staff','contractor')
+         WHERE u.role IN ${ALL_USER_ROLES}
          GROUP BY u.id, u.name, u.weekly_capacity
          ORDER BY u.name ASC`
     );
@@ -99,7 +101,7 @@ async function getAllocationViewData(week) {
          FROM assignments a
          JOIN users u ON u.id = a.user_id
          JOIN projects p ON p.id = a.project_id
-         WHERE u.role IN ('staff','contractor')
+         WHERE u.role IN ${ALL_USER_ROLES}
          ORDER BY u.name ASC, p.project_name ASC`
     );
 
@@ -134,7 +136,7 @@ async function getAllocationViewData(week) {
 
 router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
-        const teamCountResult = await db.query("SELECT COUNT(*)::int AS count FROM users WHERE role IN ('staff','contractor')");
+        const teamCountResult = await db.query(`SELECT COUNT(*)::int AS count FROM users WHERE role IN ${ALL_USER_ROLES}`);
         const todayBookingsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE date = CURRENT_DATE");
         const pendingApprovalsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'pending'");
         const projectCountResult = await db.query("SELECT COUNT(*)::int AS count FROM projects");
@@ -180,7 +182,7 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
 router.get("/team", requireLogin, requireRole("admin", "manager"), async (req, res) => {
     try {
         const team = (await db.query(
-            "SELECT id, name, email, role FROM users WHERE role IN ('staff','contractor','manager','admin') ORDER BY name ASC"
+            `SELECT id, name, email, role FROM users WHERE role IN ${ALL_USER_ROLES} ORDER BY name ASC`
         )).rows;
 
         const memberIds = team.map(row => row.id);
@@ -525,7 +527,7 @@ router.get("/bookings", requireLogin, requireRole("admin", "manager"), async (re
         query += " ORDER BY b.date DESC, u.name ASC";
 
         const bookings = (await db.query(query, params)).rows;
-        const team = (await db.query("SELECT id, name FROM users WHERE role IN ('staff','contractor') ORDER BY name ASC")).rows;
+        const team = (await db.query(`SELECT id, name FROM users WHERE role IN ${ALL_USER_ROLES} ORDER BY name ASC`)).rows;
 
         renderManagerPage(req, res, "manager-bookings", {
             bookings,
@@ -767,7 +769,7 @@ router.get("/allocation/:id/edit", requireLogin, requireRole("admin", "manager")
         }
 
         const teamMembers = (await db.query(
-            "SELECT id, name FROM users WHERE role IN ('staff','contractor') ORDER BY name ASC"
+            `SELECT id, name FROM users WHERE role IN ${ALL_USER_ROLES} ORDER BY name ASC`
         )).rows;
         const projects = (await db.query(
             "SELECT id, project_code, project_name FROM projects ORDER BY project_code ASC"
@@ -816,7 +818,7 @@ router.post("/allocation/:id/edit", requireLogin, requireRole("admin", "manager"
         }
 
         const memberExists = await db.query(
-            "SELECT id FROM users WHERE id = $1 AND role IN ('staff','contractor')",
+            `SELECT id FROM users WHERE id = $1 AND role IN ${ALL_USER_ROLES}`,
             [userId]
         );
         if (memberExists.rows.length === 0) {
