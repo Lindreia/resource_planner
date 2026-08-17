@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const projectRoot = path.join(__dirname, '..');
 const adminRoutesSource = fs.readFileSync(path.join(projectRoot, 'admin_routes.js'), 'utf8');
+const managerRoutesSource = fs.readFileSync(path.join(projectRoot, 'manager_routes.js'), 'utf8');
 
 test('admin messaging page template exists', () => {
   const filePath = path.join(projectRoot, 'web', 'templates', 'admin-messages.ejs');
@@ -19,4 +20,9 @@ test('control panel route exists', () => {
 test('control panel template exists', () => {
   const filePath = path.join(projectRoot, 'web', 'templates', 'control-panel.ejs');
   assert.ok(fs.existsSync(filePath), 'control panel template is missing');
+});
+
+test('allocation view includes admins and managers in editable team list', () => {
+  assert.match(managerRoutesSource, /role IN \('staff','contractor','manager','admin'\)/,
+    'manager allocation queries should include admins and managers in the editable team list');
 });
