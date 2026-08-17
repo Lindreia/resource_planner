@@ -337,6 +337,23 @@ router.get("/", requireLogin, (req, res) => {
     res.redirect("/weekly");
 });
 
+router.get("/control-panel", requireLogin, (req, res) => {
+    const userRole = String(req.session?.user?.role || "").toLowerCase();
+    const isAdmin = userRole === "admin";
+    const isManager = userRole === "manager";
+
+    if (!isAdmin && !isManager) {
+        return res.status(403).send("Forbidden: access restricted to admins and managers");
+    }
+
+    res.render("control-panel", {
+        user: req.session.user,
+        isAdmin,
+        isManager,
+        active_page: "control_panel"
+    });
+});
+
 router.get("/weekly", requireLogin, async (req, res) => {
     try {
         const scopedUserIds = await resolveVisibleUserIds(req.session.user);
@@ -374,7 +391,7 @@ router.get("/weekly", requireLogin, async (req, res) => {
         }
 
         const assignments = (await db.query(
-                `SELECT a.user_id, a.project_id, a.start_date, a.end_date, a.work_days, a.assignment_days, a.hours_per_week, a.hours_per_day,
+                `SELECT a.id, a.user_id, a.project_id, a.start_date, a.end_date, a.work_days, a.assignment_days, a.hours_per_week, a.hours_per_day,
                     p.project_code, p.project_name, p.color
              FROM assignments a
              JOIN projects p ON p.id = a.project_id
@@ -385,6 +402,7 @@ router.get("/weekly", requireLogin, async (req, res) => {
         )).rows;
 
         const userConfigs = new Map();
+        const assignmentsByUser = new Map();
         users.forEach((u) => {
             userConfigs.set(Number(u.id), {
                 name: u.name,
@@ -399,6 +417,19 @@ router.get("/weekly", requireLogin, async (req, res) => {
         assignments.forEach((a) => {
             const config = userConfigs.get(Number(a.user_id));
             if (!config) return;
+
+            if (!assignmentsByUser.has(Number(a.user_id))) {
+                assignmentsByUser.set(Number(a.user_id), []);
+            }
+
+            assignmentsByUser.get(Number(a.user_id)).push({
+                id: a.id,
+                project_code: a.project_code,
+                project_name: a.project_name,
+                hours_per_week: Number(a.hours_per_week) || 0,
+                start_date: a.start_date,
+                end_date: a.end_date
+            });
 
             const hours = assignmentHoursForPeriod(a, monday, sunday, config.workingDays);
             if (hours <= 0) return;
@@ -431,7 +462,8 @@ router.get("/weekly", requireLogin, async (req, res) => {
                 capacity,
                 allocated,
                 available,
-                util
+                util,
+                assignments: assignmentsByUser.get(Number(u.id)) || []
             };
         });
 

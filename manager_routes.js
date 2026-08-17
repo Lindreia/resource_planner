@@ -138,6 +138,16 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
         const todayBookingsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE date = CURRENT_DATE");
         const pendingApprovalsResult = await db.query("SELECT COUNT(*)::int AS count FROM bookings WHERE status = 'pending'");
         const projectCountResult = await db.query("SELECT COUNT(*)::int AS count FROM projects");
+        const recentAssignmentsResult = await db.query(
+            `SELECT a.id, a.user_id, u.name AS user_name,
+                    p.project_code, p.project_name,
+                    a.start_date, a.end_date, a.hours_per_week
+             FROM assignments a
+             JOIN users u ON u.id = a.user_id
+             JOIN projects p ON p.id = a.project_id
+             ORDER BY a.start_date DESC, u.name ASC
+             LIMIT 12`
+        );
 
         const viewModel = {
             stats: buildManagerStats(
@@ -146,6 +156,7 @@ router.get("/dashboard", requireLogin, requireRole("admin", "manager"), async (r
                 pendingApprovalsResult.rows[0].count,
                 projectCountResult.rows[0].count
             ),
+            recentAssignments: recentAssignmentsResult.rows,
             active_page: "manager_dashboard",
             message: req.query.message || null,
             error: req.query.error || null

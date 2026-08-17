@@ -56,6 +56,41 @@
     </div>
 
     <div class="dashboard-card mt-4">
+        <div class="dashboard-card-title">Recent Allocation Entries</div>
+        <% if (recentAssignments && recentAssignments.length > 0) { %>
+            <table class="user-table mt-3">
+                <tr>
+                    <th>Member</th>
+                    <th>Project</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Hours / Week</th>
+                    <th>Actions</th>
+                </tr>
+                <% recentAssignments.forEach(a => { %>
+                    <tr>
+                        <td><%= a.user_name %></td>
+                        <td><%= a.project_code %> - <%= a.project_name %></td>
+                        <td><%= a.start_date %></td>
+                        <td><%= a.end_date || 'Ongoing' %></td>
+                        <td><%= a.hours_per_week %></td>
+                        <td>
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <a class="login-btn small-btn" href="/manager/allocation/<%= a.id %>/edit<%= adminSuffix %>">Edit</a>
+                                <form method="POST" action="/manager/allocation/<%= a.id %>/delete<%= adminSuffix %>" class="inline-form" onsubmit="return confirm('Delete this allocation entry?');">
+                                    <button class="login-btn small-btn warn-btn" type="submit">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                <% }) %>
+            </table>
+        <% } else { %>
+            <div class="info-text mt-3">No recent allocation entries found.</div>
+        <% } %>
+    </div>
+
+    <div class="dashboard-card mt-4">
         <div class="dashboard-card-title">Manager Tools</div>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-success btn-sm" href="/manager/team<%= adminSuffix %>">View Team</a>

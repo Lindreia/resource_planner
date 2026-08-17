@@ -75,6 +75,23 @@ function buildCsv(headers, rows) {
 // ---------------------------------------------------------
 // ADMIN DASHBOARD
 // ---------------------------------------------------------
+router.get("/control-panel", requireLogin, (req, res) => {
+    const userRole = String(req.session?.user?.role || "").toLowerCase();
+    const isAdmin = userRole === "admin";
+    const isManager = userRole === "manager";
+
+    if (!isAdmin && !isManager) {
+        return res.status(403).send("Forbidden: access restricted to admins and managers");
+    }
+
+    res.render("control-panel", {
+        user: req.session.user,
+        isAdmin,
+        isManager,
+        active_page: "control_panel"
+    });
+});
+
 router.get("/dashboard", requireLogin, requireRole("admin"), async (req, res) => {
     try {
         // ============================

@@ -1,0 +1,74 @@
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Message Centre</h1>
+            <p class="text-muted mb-0">Send updates and review admin messages.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+            <a href="/control-panel" class="btn btn-outline-primary btn-sm">Control Panel</a>
+        </div>
+    </div>
+
+    <% if (message) { %>
+        <div class="alert alert-success"><%= message %></div>
+    <% } %>
+    <% if (error) { %>
+        <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <div class="dashboard-card p-4 mb-4">
+        <h2 class="h5 mb-3">Send message</h2>
+        <form method="POST" action="/admin/messages">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Recipient</label>
+                    <select name="recipient" class="form-select" required>
+                        <option value="">Select a recipient</option>
+                        <% users.forEach(function(user) { %>
+                            <option value="<%= user.email %>"><%= user.name %> (<%= user.role %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Subject</label>
+                    <input name="subject" class="form-control" maxlength="120" required />
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Message</label>
+                    <textarea name="body" class="form-control" rows="5" required></textarea>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">Send Message</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="dashboard-card p-4">
+        <h2 class="h5 mb-3">Recent sent messages</h2>
+        <% if (!sentMessages || sentMessages.length === 0) { %>
+            <p class="text-muted mb-0">No messages sent yet.</p>
+        <% } else { %>
+            <div class="list-group">
+                <% sentMessages.forEach(function(messageItem) { %>
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div>
+                                <strong><%= messageItem.payload && messageItem.payload.subject ? messageItem.payload.subject : 'Message' %></strong>
+                                <div class="small text-muted">To <%= messageItem.recipient_name %> (<%= messageItem.recipient_role %>)</div>
+                            </div>
+                            <% if (canDeleteAny) { %>
+                                <form method="POST" action="/admin/messages/<%= messageItem.id %>/delete">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            <% } %>
+                        </div>
+                        <div class="mt-2"><%= messageItem.payload && messageItem.payload.body ? messageItem.payload.body : '' %></div>
+                        <div class="small text-muted mt-2"><%= new Date(messageItem.created_at).toLocaleString() %></div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </div>
+</div>

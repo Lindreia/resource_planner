@@ -49,6 +49,18 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link <%= active_page === 'control_panel' ? 'active fw-bold' : '' %>"
+                           href="/control-panel">
+                            Control Panel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <%= active_page === 'admin_messages' ? 'active fw-bold' : '' %>"
+                           href="/admin/messages">
+                            Message Centre
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link <%= active_page === 'manager_dashboard' ? 'active fw-bold' : '' %>"
                            href="/manager/dashboard">
                             Manager Dashboard

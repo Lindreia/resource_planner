@@ -1,0 +1,43 @@
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Control Panel</h1>
+            <p class="text-muted mb-0">Admin and manager shortcuts.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">Admin Dashboard</a>
+            <a href="/admin/messages" class="btn btn-outline-primary btn-sm">Message Centre</a>
+            <a href="/admin/users" class="btn btn-outline-success btn-sm">User Management</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <% if (isAdmin) { %>
+            <div class="col-md-6">
+                <div class="dashboard-card p-4 h-100">
+                    <h2 class="h5 mb-3">Administration</h2>
+                    <div class="d-grid gap-2">
+                        <a href="/admin/dashboard" class="btn btn-primary">Open Admin Dashboard</a>
+                        <a href="/admin/users" class="btn btn-outline-primary">Manage Users</a>
+                        <a href="/admin/users/add" class="btn btn-outline-success">Create User</a>
+                        <a href="/admin/messages" class="btn btn-outline-info">Message Centre</a>
+                    </div>
+                </div>
+            </div>
+        <% } %>
+
+        <% if (isManager) { %>
+            <div class="col-md-6">
+                <div class="dashboard-card p-4 h-100">
+                    <h2 class="h5 mb-3">Management</h2>
+                    <div class="d-grid gap-2">
+                        <a href="/manager/dashboard" class="btn btn-primary">Open Manager Dashboard</a>
+                        <a href="/manager/projects" class="btn btn-outline-primary">Projects</a>
+                        <a href="/manager/team" class="btn btn-outline-success">Team</a>
+                        <a href="/weekly" class="btn btn-outline-secondary">Weekly View</a>
+                    </div>
+                </div>
+            </div>
+        <% } %>
+    </div>
+</div>
