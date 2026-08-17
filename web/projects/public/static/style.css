@@ -130,6 +130,143 @@ body {
 }
 
 /* ----------------------------------------------------
+   PAGE HEADER / EDIT FORMS
+---------------------------------------------------- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.subtitle {
+    margin: 0 0 18px;
+    color: rgba(26, 26, 26, 0.7);
+}
+
+[data-theme="dark"] .subtitle {
+    color: rgba(230, 230, 230, 0.72);
+}
+
+.secondary-link,
+.secondary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--r8-border);
+    color: var(--r8-text);
+    text-decoration: none;
+    font-weight: 600;
+    background: var(--r8-surface);
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.secondary-link:hover,
+.secondary-btn:hover {
+    background: rgba(11, 138, 74, 0.05);
+    border-color: rgba(11, 138, 74, 0.28);
+}
+
+.allocation-edit-card {
+    max-width: 860px;
+    padding: 24px;
+}
+
+.allocation-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 18px 20px;
+    background: rgba(11, 138, 74, 0.04);
+    border: 1px solid rgba(11, 138, 74, 0.12);
+    border-radius: 12px;
+}
+
+.allocation-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.allocation-summary-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(26, 26, 26, 0.65);
+    font-weight: 700;
+}
+
+[data-theme="dark"] .allocation-summary-label {
+    color: rgba(230, 230, 230, 0.72);
+}
+
+.allocation-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.allocation-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 18px 22px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-group-wide {
+    grid-column: 1 / -1;
+}
+
+.input-group label {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--r8-text);
+}
+
+.input-group select,
+.input-group input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 1px solid var(--r8-border);
+    border-radius: 10px;
+    background: var(--r8-surface);
+    color: var(--r8-text);
+    font-size: 0.96rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-group select:focus,
+.input-group input:focus {
+    outline: none;
+    border-color: rgba(11, 138, 74, 0.45);
+    box-shadow: 0 0 0 4px rgba(11, 138, 74, 0.1);
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.form-actions .login-btn {
+    width: auto;
+    min-width: 160px;
+    margin-top: 0;
+    box-shadow: none;
+}
+
+/* ----------------------------------------------------
    PROJECT DOT COLORS
 ---------------------------------------------------- */
 .project-dot {

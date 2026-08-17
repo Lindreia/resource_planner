@@ -32,8 +32,15 @@
 
     <main class="content">
 
-        <h2>Edit Allocation</h2>
-        <p class="subtitle">Reassign this entry to a different person or project, and adjust dates/hours.</p>
+        <div class="page-header">
+            <div>
+                <p class="r8-section-title">Resource Allocation</p>
+                <h2 class="r8-page-title">Edit Allocation</h2>
+            </div>
+            <a class="secondary-link" href="/manager/allocation<%= adminSuffix %>">Back to Allocation</a>
+        </div>
+
+        <p class="subtitle">Reassign this entry to a different person or project, and adjust dates and hours.</p>
 
         <% if (error) { %>
             <div class="error-box"><%= error %></div>
@@ -43,61 +50,70 @@
             <div class="success-box"><%= message %></div>
         <% } %>
 
-        <div class="profile-card">
-            <p><strong>Current Team Member:</strong> <%= assignment.user_name %></p>
-            <p><strong>Current Project:</strong> <%= assignment.project_code %> - <%= assignment.project_name %></p>
-        </div>
-
-        <form method="POST" action="/manager/allocation/<%= assignment.id %>/edit<%= adminSuffix %>">
-            <div class="input-group">
-                <label>Team Member</label>
-                <select name="user_id" class="role-select" required>
-                    <% teamMembers.forEach(member => { %>
-                        <option value="<%= member.id %>" <%= assignment.user_id === member.id ? 'selected' : '' %>>
-                            <%= member.name %>
-                        </option>
-                    <% }) %>
-                </select>
+        <div class="dashboard-card allocation-edit-card">
+            <div class="allocation-summary">
+                <div class="allocation-summary-item">
+                    <span class="allocation-summary-label">Current team member</span>
+                    <strong><%= assignment.user_name %></strong>
+                </div>
+                <div class="allocation-summary-item">
+                    <span class="allocation-summary-label">Current project</span>
+                    <strong><%= assignment.project_code %> - <%= assignment.project_name %></strong>
+                </div>
             </div>
 
-            <div class="input-group">
-                <label>Project</label>
-                <select name="project_id" class="role-select" required>
-                    <% projects.forEach(project => { %>
-                        <option value="<%= project.id %>" <%= assignment.project_id === project.id ? 'selected' : '' %>>
-                            <%= project.project_code %> - <%= project.project_name %>
-                        </option>
-                    <% }) %>
-                </select>
-            </div>
+            <form method="POST" action="/manager/allocation/<%= assignment.id %>/edit<%= adminSuffix %>" class="allocation-edit-form">
+                <div class="allocation-form-grid">
+                    <div class="input-group">
+                        <label>Team Member</label>
+                        <select name="user_id" class="role-select" required>
+                            <% teamMembers.forEach(member => { %>
+                                <option value="<%= member.id %>" <%= assignment.user_id === member.id ? 'selected' : '' %>>
+                                    <%= member.name %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
 
-            <div class="input-group">
-                <label>Start Date</label>
-                <input type="date" name="start_date" value="<%= assignment.start_date %>" required>
-            </div>
+                    <div class="input-group">
+                        <label>Project</label>
+                        <select name="project_id" class="role-select" required>
+                            <% projects.forEach(project => { %>
+                                <option value="<%= project.id %>" <%= assignment.project_id === project.id ? 'selected' : '' %>>
+                                    <%= project.project_code %> - <%= project.project_name %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
 
-            <div class="input-group">
-                <label>End Date</label>
-                <input type="date" name="end_date" value="<%= assignment.end_date %>" required>
-            </div>
+                    <div class="input-group">
+                        <label>Start Date</label>
+                        <input type="date" name="start_date" value="<%= assignment.start_date %>" required>
+                    </div>
 
-            <div class="input-group">
-                <label>Hours Per Week</label>
-                <input
-                    type="number"
-                    name="hours_per_week"
-                    min="1"
-                    step="0.5"
-                    value="<%= assignment.hours_per_week %>"
-                    required
-                >
-            </div>
+                    <div class="input-group">
+                        <label>End Date</label>
+                        <input type="date" name="end_date" value="<%= assignment.end_date %>" required>
+                    </div>
 
-            <button class="login-btn small-btn" type="submit">Save Changes</button>
-        </form>
+                    <div class="input-group input-group-wide">
+                        <label>Hours Per Week</label>
+                        <input
+                            type="number"
+                            name="hours_per_week"
+                            min="1"
+                            step="0.5"
+                            value="<%= assignment.hours_per_week %>"
+                            required
+                        >
+                    </div>
+                </div>
 
-        <div class="footer-links">
-            <a href="/manager/allocation<%= adminSuffix %>">Back to Allocation</a>
+                <div class="form-actions">
+                    <button class="login-btn small-btn" type="submit">Save Changes</button>
+                    <a class="secondary-btn" href="/manager/allocation<%= adminSuffix %>">Cancel</a>
+                </div>
+            </form>
         </div>
 
     </main>
