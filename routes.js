@@ -14,7 +14,7 @@ async function resolveVisibleUserIds(user) {
 
     if (!Number.isInteger(userId)) return [];
 
-    if (role === "admin" || role === "viewer") {
+    if (role === "admin" || role === "creator" || role === "viewer") {
         return null;
     }
 
